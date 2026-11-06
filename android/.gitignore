@@ -1,0 +1,26 @@
+# OSX
+#
+.DS_Store
+
+# Android/IntelliJ
+#
+build/
+.idea
+.gradle
+local.properties
+# ...except this project's, which carries the ndk.dir fix described inside it.
+# Without that line the C++ link fails with roughly 300 undefined libc++
+# symbols, and the diagnosis took long enough that losing the file would be a
+# real setback. Tracked deliberately; revisit if this repo ever gains a remote
+# or is used from a second machine.
+!local.properties
+*.iml
+*.hprof
+.cxx/
+gradle/gradle-daemon-jvm.properties
+
+# generated inline modules
+app/src/main/java/inline/
+
+# Bundle artifacts
+*.jsbundle

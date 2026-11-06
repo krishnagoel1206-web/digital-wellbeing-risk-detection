@@ -1,0 +1,37 @@
+// Local Expo module. The expo-module-gradle-plugin supplies the compileSdk,
+// minSdk, Kotlin setup and expo-modules-core dependency, so this file stays
+// minimal and automatically tracks whatever the installed Expo SDK expects.
+// Pattern taken from node_modules/expo-device/android/build.gradle.
+
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.usagestats'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.usagestats"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+// Unit tests for the capture merge rules.
+//
+// Worth the test infrastructure because of what that code's failure mode is:
+// not a crash or a wrong number on a screen, but the silent and PERMANENT
+// loss of measurements that cannot be re-read, since Android discards its
+// usage events after about a week.
+//
+// Plain JUnit, no Robolectric. The logic under test was deliberately
+// extracted into CaptureMerge.kt with no Android imports and no I/O, so an
+// Android runtime would add minutes to the build to test a decision that
+// depends on three booleans and two integers.
+//
+// Run with:  ./gradlew :usage-stats:testDebugUnitTest
+dependencies {
+  testImplementation 'junit:junit:4.13.2'
+}

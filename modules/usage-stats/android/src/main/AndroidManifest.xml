@@ -1,0 +1,60 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      PACKAGE_USAGE_STATS is a "signature|privileged|development" permission,
+      so declaring it does NOT grant it. Android requires the user to enable
+      "Usage access" for this app manually in
+      Settings > Apps > Special app access > Usage access.
+
+      Declaring it here is still required: without the declaration the app
+      does not appear in that settings list at all. `tools:ignore` suppresses
+      the lint warning that fires because the permission cannot be granted
+      the usual way - that is expected, not a mistake.
+
+      This is the same mechanism Digital Wellbeing itself uses.
+    -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!--
+      Needed on Android 11+ (API 30) so that the app can resolve the LABEL and
+      CATEGORY of other installed apps. Without it, package queries are
+      filtered and usage would be reported against bare package names with no
+      category, making the social/gaming/productivity split impossible.
+    -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <!--
+      Call log. This is an ordinary runtime permission, requested with the
+      standard dialog. Unlike usage events, Android retains the call log
+      long-term, so this genuinely backfills past days.
+    -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+
+    <application>
+        <!--
+          Notification listener. BIND_NOTIFICATION_LISTENER_SERVICE is held by
+          the SYSTEM, not by this app: declaring it here is how Android knows
+          only the system may bind to this service.
+
+          The user grants access in
+          Settings > Apps > Special app access > Notification access.
+
+          Note this service can only count notifications from the moment it is
+          enabled - Android keeps no notification history to read.
+        -->
+        <service
+            android:name=".NotificationCounterService"
+            android:exported="false"
+            android:label="Digital Wellbeing notification counter"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
+
+</manifest>

@@ -1,0 +1,30 @@
+# Virtual environment - recreate with: py -m venv .venv
+.venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local environment overrides (never commit real config)
+.env
+
+# SQLite database and its write-ahead log.
+# This holds the user's own usage records and is local state, not source.
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Raw datasets are large and licensed by their publishers - each developer
+# downloads them. See README.md for the links.
+data/raw/*
+!data/raw/.gitkeep
+
+# Generated sample data
+data/synthetic/*
+!data/synthetic/.gitkeep
+
+# Trained model artifacts are build output: regenerate with the training
+# scripts so that models always match the code that produced them.
+app/ml/artifacts/*.joblib
+app/ml/artifacts/*.json

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Permits plain HTTP, which Android 9+ blocks by default in release builds.
+
+  WHY THIS IS NEEDED
+
+  The API is a FastAPI server on the developer's laptop, reached over USB
+  (adb reverse) or a phone hotspot. It has no TLS certificate and no domain
+  name; it is addressed by raw IP on a private network.
+
+  Without this, a RELEASE build fails in a thoroughly confusing way: every
+  request dies instantly, the app reports the backend unreachable, and the
+  laptop's own logs show no request arriving at all. Debug builds are
+  unaffected, because Expo's debug manifest sets usesCleartextTraffic to true,
+  so the problem appears only in the build a user actually runs.
+
+  WHY IT IS NOT RESTRICTED TO SPECIFIC ADDRESSES
+
+  A domain-config listing only known hosts would be tighter, and was the first
+  instinct. But Android's network security config matches literal hostnames,
+  not address ranges, while the backend's address CHANGES: it depends on which
+  hotspot or network is in use, which is precisely why the API client probes
+  several candidates in turn. Listing some addresses and not others would mean
+  a working backend silently unreachable after a network change, with no
+  diagnostic. That failure mode is worse than the risk this guards against, on
+  an academic prototype talking only to a machine on the same private network.
+
+  THIS SHOULD BE DELETED once the Python backend is embedded in the app via
+  Chaquopy: at that point nothing leaves the device and no cleartext is sent
+  anywhere at all.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

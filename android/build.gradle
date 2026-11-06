@@ -7,6 +7,11 @@ buildscript {
   }
   dependencies {
     classpath('com.android.tools.build:gradle')
+    // Chaquopy embeds CPython in the APK, so the Python ML backend runs on the
+    // phone instead of on a laptop over the network. MIT-licensed and free
+    // since 12.0.1, published on Maven Central (already a repository above).
+    // 17.2.0 supports AGP 7.3-9.5; this project is on AGP 9.2.1.
+    classpath('com.chaquo.python:gradle:17.2.0')
     classpath('com.facebook.react:react-native-gradle-plugin')
     def kotlinVersion = findProperty('android.kotlinVersion')
     classpath(kotlinVersion ? "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" : 'org.jetbrains.kotlin:kotlin-gradle-plugin')

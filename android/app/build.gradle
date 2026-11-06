@@ -1,6 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply plugin: "com.chaquo.python"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -89,6 +90,59 @@ android {
 
     namespace 'com.anonymous.my_mlproj'
     defaultConfig {
+        // ---- Embedded Python -------------------------------------------
+        // Starts deliberately minimal: no ML packages yet. The first thing
+        // to establish is whether the toolchain works at all, which takes a
+        // short build; downloading numpy, scipy, pandas and scikit-learn
+        // before knowing that would turn a five-minute answer into a long
+        // one.
+        python {
+            // 3.10, NOT the backend's 3.15.
+            //
+            // Chaquopy builds its own Android wheels for native packages, and
+            // that set is the real constraint. scikit-learn is the binding
+            // one: its newest Android wheel is 1.3.2, built for cp310 only.
+            // Python 3.15 has no numpy wheel at all, verified by a build that
+            // failed with "Could not find a version that satisfies the
+            // requirement numpy (from versions: none)".
+            //
+            // So the phone runs an older stack than the laptop, and the gap is
+            // wide enough to matter - see docs and the retraining note below.
+            version "3.10"
+
+            // Chaquopy runs pip with a LOCAL interpreter of the same version
+            // to resolve wheels, and this machine has only 3.15 - the default
+            // lookup fails with "Couldn't find Python 3.10".
+            //
+            // Installed via `uv python install 3.10`, which keeps it in uv's
+            // own directory rather than on PATH or in the system Python, so
+            // nothing about the existing 3.15 setup changes.
+            buildPython "C:/Users/Krishna Goel/AppData/Roaming/uv/python/cpython-3.10-windows-x86_64-none/python.exe"
+
+            pip {
+                // PINNED, and chosen as a mutually compatible SET rather than
+                // by taking the newest of each. scipy 1.8.1 is the only cp310
+                // build available and dates from 2022, so numpy is held at
+                // 1.23.3 rather than 1.26.2: a scipy compiled against an older
+                // numpy C API can fail at import time against a newer one, and
+                // that failure appears only on the device.
+                install "numpy==1.23.3"
+                install "scipy==1.8.1"
+                install "pandas==2.1.3"
+                install "scikit-learn==1.3.2"
+                // Pure Python, so any version works.
+                install "joblib==1.3.2"
+            }
+        }
+
+        // Python 3.12 and newer are 64-bit only, so the other ABIs cannot
+        // carry an interpreter. Restricting here also keeps the build honest:
+        // an APK advertising armeabi-v7a that cannot run Python on it would
+        // fail at runtime rather than at build time.
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+
         applicationId 'com.anonymous.my_mlproj'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion

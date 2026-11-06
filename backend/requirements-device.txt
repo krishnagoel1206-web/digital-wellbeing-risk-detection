@@ -1,0 +1,35 @@
+# The ON-DEVICE stack: exactly the versions Chaquopy ships Android wheels for.
+#
+# WHY A SECOND REQUIREMENTS FILE
+# The phone cannot run the versions in requirements.txt. Chaquopy builds its
+# own Android wheels, and that set is the binding constraint - scikit-learn
+# tops out at 1.3.2, built for CPython 3.10 only, and Python 3.15 has no numpy
+# wheel at all.
+#
+# Training and testing are run against this file so that the figures reported
+# in the README are produced by the same code the phone executes. Measured: the
+# classifier, clustering, PCA and recommender results are IDENTICAL under both
+# stacks, so the version gap costs accuracy nowhere that has been measured.
+#
+# Create with:
+#   uv python install 3.10
+#   <uv python 3.10> -m venv .venv-device
+#   .venv-device/Scripts/python.exe -m pip install -r requirements-device.txt
+
+# Pinned as a mutually compatible SET, not by newest-of-each. scipy 1.8.1 is
+# the only cp310 Android build and dates from 2022, so numpy is held at 1.23.3
+# rather than the available 1.26.2: a scipy compiled against an older numpy C
+# API can fail at import on the device, and nowhere earlier.
+numpy==1.23.3
+scipy==1.8.1
+pandas==2.1.3
+scikit-learn==1.3.2
+joblib==1.3.2
+
+# Pure Python, and verified to install under Chaquopy together with its
+# greenlet dependency, which has a prebuilt Android wheel. This is why the
+# whole data-access layer moves to the phone unchanged.
+SQLAlchemy==2.0.44
+
+# Testing only; never shipped in the APK.
+pytest==7.4.4

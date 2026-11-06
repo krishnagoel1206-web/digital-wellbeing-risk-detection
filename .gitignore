@@ -11,6 +11,11 @@
 # --- dependencies, rebuildable from a manifest -------------------------------
 node_modules/
 backend/.venv/
+# A second venv pinned to the versions available on ANDROID (Python 3.10,
+# scikit-learn 1.3.2, scipy 1.8.1, pandas 2.1.3, numpy 1.23.3). Training and
+# testing run against it so that what is measured on the laptop is what the
+# phone actually executes. Rebuildable; see backend/requirements-device.txt.
+backend/.venv-device/
 
 # --- build output ------------------------------------------------------------
 android/build/

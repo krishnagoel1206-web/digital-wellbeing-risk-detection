@@ -132,6 +132,12 @@ android {
                 install "scikit-learn==1.3.2"
                 // Pure Python, so any version works.
                 install "joblib==1.3.2"
+                // Probe: SQLAlchemy is pure Python with OPTIONAL C
+                // extensions. If it installs, the entire data-access layer
+                // (models, usage_service, sync_service) moves to the phone
+                // unchanged; if it needs to compile, that layer has to be
+                // rewritten against stdlib sqlite3 instead.
+                install "SQLAlchemy==2.0.44"
             }
         }
 

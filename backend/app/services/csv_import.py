@@ -28,7 +28,6 @@ import io
 import json
 from dataclasses import dataclass, field
 
-from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.database.models import DataSource, ImportBatch
@@ -277,12 +276,17 @@ def import_usage_csv(
 
         try:
             validated = UsageRecordCreate(**payload)
-        except ValidationError as exc:
-            reasons = "; ".join(
-                f"{'.'.join(str(p) for p in err['loc']) or 'row'}: {err['msg']}"
-                for err in exc.errors()
-            )
-            result.problems.append(RowProblem(row_number, reasons))
+        except (TypeError, ValueError) as exc:
+            # str(exc), not exc.errors(). The schemas raise plain ValueError
+            # now that they are dataclasses rather than pydantic models, and
+            # a single clear sentence is what the import report was building
+            # out of the structured list anyway.
+            #
+            # TypeError is caught too: a dataclass rejects an unexpected
+            # keyword with TypeError where pydantic reported it as a
+            # validation error, and a CSV with a stray recognised-looking
+            # column must be a rejected ROW, not a 500.
+            result.problems.append(RowProblem(row_number, str(exc)))
             result.rows_rejected += 1
             continue
 

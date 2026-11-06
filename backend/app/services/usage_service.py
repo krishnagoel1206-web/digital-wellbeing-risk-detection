@@ -9,6 +9,7 @@ queries, so there is exactly one definition of "the user's history".
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Mapping
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -16,8 +17,8 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database.models import DataSource, UsageRecord
 from app.schemas.usage import (
+    UPDATABLE_FIELDS,
     UsageRecordCreate,
-    UsageRecordUpdate,
     UsageSummary,
 )
 
@@ -98,7 +99,7 @@ def get_record(db: Session, record_id: int) -> UsageRecord:
     return record
 
 
-def update_record(db: Session, record_id: int, payload: UsageRecordUpdate) -> UsageRecord:
+def update_record(db: Session, record_id: int, payload: Mapping[str, object]) -> UsageRecord:
     """Apply a partial update, re-validating the MERGED result.
 
     A partial payload cannot be cross-validated on its own (sending only
@@ -108,7 +109,18 @@ def update_record(db: Session, record_id: int, payload: UsageRecordUpdate) -> Us
     """
     record = get_record(db, record_id)
 
-    changes = payload.model_dump(exclude_unset=True)
+    # Only the keys actually SENT are applied, which is what pydantic's
+    # exclude_unset did. A mapping carries that information directly; a
+    # dataclass cannot, because an omitted field and an explicit null are
+    # indistinguishable once it is constructed.
+    unknown = set(payload) - UPDATABLE_FIELDS
+    if unknown:
+        raise ValueError(
+            f"unknown field(s) in update: {', '.join(sorted(unknown))}. "
+            f"Allowed: {', '.join(sorted(UPDATABLE_FIELDS))}"
+        )
+
+    changes = dict(payload)
     if not changes:
         return record
 
@@ -131,7 +143,7 @@ def update_record(db: Session, record_id: int, payload: UsageRecordUpdate) -> Us
     }
     merged.update(changes)
 
-    # Raises pydantic.ValidationError if the merged row is inconsistent.
+    # Raises ValueError if the merged row is inconsistent.
     validated = UsageRecordCreate(**merged)
 
     for field, value in validated.model_dump(exclude={"record_date", "source"}).items():

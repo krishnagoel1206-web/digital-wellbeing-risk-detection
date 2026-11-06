@@ -17,7 +17,6 @@ from app.database.session import get_db
 from app.schemas.usage import (
     UsageRecordCreate,
     UsageRecordRead,
-    UsageRecordUpdate,
     UsageSummary,
 )
 from app.services import usage_service
@@ -41,7 +40,7 @@ def create_record(
         # 409 rather than overwriting: silently replacing a day's data would
         # make the stored history untrustworthy.
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
-    return UsageRecordRead.model_validate(record)
+    return UsageRecordRead.from_record(record)
 
 
 @router.get(
@@ -73,7 +72,7 @@ def list_records(
         end_date=end_date,
         sources=sources,
     )
-    return [UsageRecordRead.model_validate(r) for r in records]
+    return [UsageRecordRead.from_record(r) for r in records]
 
 
 @router.get(
@@ -95,7 +94,7 @@ def get_record(record_id: int, db: Session = Depends(get_db)) -> UsageRecordRead
         record = usage_service.get_record(db, record_id)
     except usage_service.RecordNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    return UsageRecordRead.model_validate(record)
+    return UsageRecordRead.from_record(record)
 
 
 @router.patch(
@@ -105,7 +104,12 @@ def get_record(record_id: int, db: Session = Depends(get_db)) -> UsageRecordRead
 )
 def update_record(
     record_id: int,
-    payload: UsageRecordUpdate,
+    # A raw mapping rather than a schema object, because a partial update
+    # needs to know which fields were SENT - and a dataclass cannot tell an
+    # omitted field from one explicitly set to null. The keys are checked
+    # against an allow-list and the merged row is fully revalidated; see
+    # usage_service.update_record.
+    payload: dict,
     db: Session = Depends(get_db),
 ) -> UsageRecordRead:
     try:
@@ -120,7 +124,7 @@ def update_record(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
-    return UsageRecordRead.model_validate(record)
+    return UsageRecordRead.from_record(record)
 
 
 @router.delete(

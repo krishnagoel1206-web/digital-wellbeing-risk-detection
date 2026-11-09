@@ -28,17 +28,35 @@ in the app itself.
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| App | React Native 0.88 · Expo SDK 58 · TypeScript · Expo Router |
-| Native data access | Custom Expo module in **Kotlin** (`modules/usage-stats/`) |
-| API | Python · FastAPI · Pydantic v2 · SQLAlchemy 2.0 |
-| ML | scikit-learn · NumPy · pandas · SciPy |
-| Storage | SQLite |
+Everything in this table ships **inside the APK**. After installation the app
+needs no laptop, no server and no internet connection.
 
-The app talks to a FastAPI backend running on a laptop over the local network
-(phone hotspot or shared Wi-Fi). The backend does all model fitting and
-inference; the phone collects data and renders.
+| Layer | Technology | Runs on |
+|---|---|---|
+| App | React Native 0.88 · Expo SDK 58 · TypeScript · Expo Router | phone |
+| Native data access | Custom Expo module in **Kotlin** (`modules/usage-stats/`) | phone |
+| Embedded runtime | **Chaquopy** CPython 3.10.22 (arm64) | phone |
+| ML | **scikit-learn 1.3.2** · NumPy 1.23.3 · pandas 2.1.3 · SciPy 1.8.1 | phone |
+| Data layer | SQLAlchemy 2.0 over SQLite, in app-private storage | phone |
+| Dev-only API | Python · FastAPI · Pydantic v2 | laptop |
+
+The FastAPI server still exists, but **only for development**: it is easier to
+log and step through than an interpreter inside an APK. The app prefers the
+embedded backend whenever one is present, which in a release build is always.
+
+### Why real scikit-learn rather than ONNX or TensorFlow Lite
+
+The usual advice for on-device ML is to export to ONNX or TFLite. That was
+evaluated and rejected on evidence, not preference:
+
+- **DBSCAN, BIRCH, the personal-baseline detector and the Bayesian layer have
+  no ONNX export.** Converting would have meant reimplementing them by hand -
+  precisely the silent algorithm substitution this project forbids.
+- **TFLite targets neural networks**, not the estimators used here.
+- Chaquopy runs the *same scikit-learn code the tests exercise*, so what is
+  measured on the laptop is what executes on the phone.
+
+The cost is APK size: roughly 110 MB, against about 37 MB without Python.
 
 ---
 
@@ -51,10 +69,15 @@ modules/usage-stats/        Kotlin Expo module - reads UsageStatsManager,
 src/
   app/(tabs)/               The 8 screens (Expo Router)
   services/api/             Typed client with backend address auto-discovery
-  services/usage/           Device collection, durable capture, background sync
+  services/api/local.ts     The on-device transport, replacing fetch
+  services/usage/           Device collection, durable capture, reconciliation
   types/api.ts              Hand-written mirrors of every API response
 backend/
-  app/api/                  Routers: usage, data, ml, health
+  app/mobile_api.py         The phone's entry point: call(name, params) -> JSON
+  app/services/
+    analysis_service.py     All ML endpoint logic, no web framework
+    data_service.py         Seeding and sync status, no web framework
+  app/api/                  Dev-only FastAPI routers, thin over the services
   app/ml/
     preprocessing/          Cleaning + the documented feature dictionary
     regression/             train_forecast.py  /  inference.py
@@ -65,7 +88,7 @@ backend/
     recommendations/        KNN neighbour comparison
     artifacts/              Trained models (.joblib) + metrics (.json)
   scripts/                  Training entry points
-  tests/                    141 tests
+  tests/                    152 tests
 ```
 
 **Training code is separate from inference code throughout.** A module named
@@ -74,68 +97,128 @@ trigger a fit.
 
 ---
 
-## Running it
+## How it runs without a server
 
-### 1. Backend
+```
+APK
+├── React Native UI — JS bundled in, 8 screens
+│        ↕  direct function calls, no HTTP
+├── Kotlin: usage-stats module
+│     • UsageStatsManager · NotificationListener · CallLog
+│     • CapturedDayStore — days outlive Android's ~1 week retention
+│     • PythonBridge — callPython(name, paramsJson) → JSON
+│        ↕
+├── Chaquopy CPython 3.10.22 (arm64)
+│     • numpy · scipy · pandas · scikit-learn · joblib · SQLAlchemy
+│     • app/mobile_api.py   — dispatch, replaces the FastAPI routers
+│     • app/services/*      — the analysis logic, shared with the dev API
+│     • app/ml/*            — 25 modules, unchanged
+│     • trained models, packaged with the Python sources
+└── SQLite at /data/data/<pkg>/files/data/wellbeing.db
+```
+
+**There is no HTTP server inside the app.** The obvious design - run uvicorn on
+`127.0.0.1` - is impossible: FastAPI requires Pydantic v2, whose core is
+compiled Rust with no Android build. Direct calls are better anyway: no
+sockets, no ports, nothing to fail.
+
+The API client keeps speaking HTTP's language regardless. `mobile_api` returns
+`{status, body}`, so a refusal is `409` whichever transport served it, and
+every screen, chart and error panel works unchanged against both.
+
+### What the laptop is still for
+
+Building the APK, and training the population models. Neither happens at
+runtime. Once the APK is installed, the phone is self-contained.
+
+---
+
+## Installing the app
+
+This is all an end user needs. No laptop, no terminal, no network.
+
+1. Copy **`app-release.apk`** to the phone (USB, Drive, email - anything).
+2. Open it with a file manager and tap **Install**. Android will warn about
+   installing from an unknown source; allow it for whichever app is doing the
+   installing.
+3. Open the app and grant the three permissions it asks for. Each is granted
+   in Android Settings rather than by a dialog, and the app links straight to
+   the right screen:
+
+   | Permission | What it provides | Can it be backfilled? |
+   |---|---|---|
+   | Usage access | screen time, app sessions, unlocks | ~1 week of history |
+   | Notification access | notification counts | **No** - counts start the day you grant it |
+   | Call log | calls and durations | yes |
+
+4. That is the whole installation. The app begins capturing immediately, and
+   analyses appear as enough history accumulates - see
+   [Current state](#current-state-on-real-data) for what needs how long.
+
+**Requirements:** Android 7.0 (API 24) or newer, on a 64-bit ARM device. The
+APK is `arm64-v8a` only, because the embedded Python 3.10+ interpreter has no
+32-bit build.
+
+---
+
+## Developing it
+
+Only needed to change the code or rebuild the APK.
+
+### Build the APK
+
+```bash
+cd android
+./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a
+# -> android/app/build/outputs/apk/release/app-release.apk
+```
+
+Restricting to `arm64-v8a` is not optional - Python 3.12+ is 64-bit only - and
+it cuts the build from about 25 minutes to 3.
+
+### Two Python environments, and why
 
 ```bash
 cd backend
-python -m venv .venv
+python -m venv .venv                               # laptop API, Python 3.15
 .venv/Scripts/python.exe -m pip install -r requirements.txt
-.venv/Scripts/python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000
+
+uv python install 3.10                             # matches the phone
+<uv python 3.10> -m venv .venv-device
+.venv-device/Scripts/python.exe -m pip install -r requirements-device.txt
 ```
 
-`--host 0.0.0.0` matters: the phone connects over the network, so binding to
-localhost only would make the backend unreachable. Allow Python through the
-Windows firewall on first run.
+`.venv-device` is the canonical one. Chaquopy builds its own Android wheels,
+and that set is the binding constraint - scikit-learn tops out at 1.3.2, built
+for CPython 3.10 only. **Train and test there**, or you are measuring a stack
+the phone will never execute.
 
-Check it at <http://localhost:8000/api/health>. The response includes
-`lan_addresses`, the laptop's own addresses on the current network — the app
-shows these on its Profile screen, so a changed hotspot IP can be read off the
-phone instead of hunted down with `ipconfig`.
+That is not theoretical. A model pickled by scikit-learn 1.3.2 and loaded under
+1.9.1 did not raise - it returned probabilities summing to 1313.64.
 
-### 2. Train the models
+### Train the models
 
 ```bash
 cd backend
-.venv/Scripts/python.exe scripts/train_models.py                     # regression + classification
-.venv/Scripts/python.exe scripts/train_clusters_and_score_anomalies.py
-.venv/Scripts/python.exe scripts/train_risk_score.py
-.venv/Scripts/python.exe scripts/train_recommender.py
+.venv-device/Scripts/python.exe scripts/train_models.py
+.venv-device/Scripts/python.exe scripts/train_clusters_and_score_anomalies.py
+.venv-device/Scripts/python.exe scripts/train_risk_score.py
+.venv-device/Scripts/python.exe scripts/train_recommender.py
 ```
 
-Each script prints its real metrics, including the ones that look bad. To fit
-the forecaster on measured days only:
+Artifacts land in `backend/app/ml/artifacts/` and are packaged into the APK
+automatically, because `backend/` is a Python source root for the build.
+
+### The development API
 
 ```bash
-.venv/Scripts/python.exe scripts/train_models.py --only regression --sources device
+cd backend
+.venv/Scripts/python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000
+npx expo start
 ```
 
-That refuses unless at least 21 consecutive measured days exist — see
-[Current state](#current-state-on-real-data).
-
-### 3. The app
-
-A **development build** is required, not Expo Go: the project contains a custom
-native module, and Expo Go cannot load one.
-
-```bash
-npx expo run:android      # builds and installs the dev build
-npx expo start            # subsequent runs
-```
-
-### 4. Grant the three permissions
-
-On first launch the app opens a Permissions screen. All three are granted in
-Android Settings rather than by a dialog:
-
-| Permission | Why | Backfill? |
-|---|---|---|
-| Usage access | Screen time, app sessions, unlocks | ~1 week of history |
-| Notification access | Notification counts | **No** — counts start the day you grant it |
-| Call log | Calls and durations | Yes |
-
-Then press **Sync** on the Usage Data screen.
+Useful for inspecting and stepping through the backend, which an interpreter
+inside an APK does not allow. The shipped app never uses it.
 
 ---
 
@@ -308,6 +391,17 @@ measured ones, behind the demonstration banner.
 - **The project must not live in a OneDrive-synced folder.** File watchers fire
   continuously there, which breaks Metro's Fast Refresh. A path containing a
   space also breaks the Android NDK toolchain.
+- **The on-device library versions are older than the laptop's**, because
+  Chaquopy's Android wheels are the binding constraint: scikit-learn 1.3.2 and
+  Python 3.10 rather than 1.9.1 and 3.15. Measured, this costs nothing - the
+  classifier, clustering, PCA and recommender results are identical under both
+  - but models must be trained against the device stack, since a cross-version
+  pickle load does not raise, it returns nonsense.
+- **CSV import and single-record delete are not available on-device.** Both
+  return a clear error rather than a half-implementation; nothing in the app
+  calls either.
+- **The APK is arm64-v8a only.** Python 3.10+ has no 32-bit Android build, so a
+  32-bit device cannot run this app at all.
 
 ---
 
@@ -315,7 +409,7 @@ measured ones, behind the demonstration banner.
 
 ```bash
 cd backend
-.venv/Scripts/python.exe -m pytest tests/ -q      # 141 passed
+.venv-device/Scripts/python.exe -m pytest tests/ -q   # 152 passed
 ```
 
 ```bash
@@ -335,8 +429,22 @@ rather than a bare assertion. The tests guarding the two most recent fixes were
 checked to go **red** when the fix is removed.
 
 ```bash
-npx tsc --noEmit                                   # frontend typecheck
+npx jest            # 23 TypeScript tests - the on-device transport
+npx tsc --noEmit    # typecheck
 ```
+
+```bash
+cd android
+./gradlew :usage-stats:testDebugUnitTest    # 15 Kotlin tests - capture merge rules
+```
+
+Three suites, because the three layers fail differently. The Python tests
+reach the services through FastAPI, which silently handles serialisation and
+error mapping; on the device none of that exists, so the transport and the
+dispatch layer needed their own. Each suite was checked by **deleting the rule
+it guards and confirming the suite goes red** - which twice revealed tests
+passing for the wrong reason, and twice revealed code that was dead weight
+pretending to be a safeguard.
 
 ---
 

@@ -23,7 +23,7 @@
 
 import * as UsageStats from '@modules/usage-stats';
 
-import { ApiError } from './client';
+import { ApiError } from './errors';
 
 /** Whether this build has the embedded interpreter. */
 export function isLocalBackendAvailable(): boolean {
@@ -51,9 +51,17 @@ function endpointFor(method: string, path: string): string | null {
     return 'usage/records';
   }
 
-  // /api/usage/records/{id} - single-record delete. Manual entry was removed
-  // from the app, so nothing calls this; it is listed rather than silently
-  // mapped to the bulk delete, which would destroy far more than asked.
+  // /api/usage/records/{id} - single-record delete, which the on-device
+  // backend does not implement. Manual entry was removed from the app, so
+  // nothing calls it.
+  //
+  // This line is DEFENCE IN DEPTH, not the thing that makes it safe: the
+  // allow-list below already rejects the path, which mutation testing proved
+  // by deleting this guard and watching every test still pass. It is kept
+  // because the failure it guards against is severe and asymmetric - routing
+  // a single-record delete to delete-by-source would destroy far more than
+  // was asked - and because a future edit to the allow-list should not be
+  // able to make that mistake reachable.
   if (/^usage\/records\/\d+$/.test(clean)) return null;
 
   const known = new Set([
@@ -125,9 +133,15 @@ export async function localRequest<T>(path: string, options: LocalOptions = {}):
   // single mapping.
   const params: Record<string, unknown> = { ...(query ?? {}) };
   if (body && typeof body === 'object') Object.assign(params, body);
-  for (const key of Object.keys(params)) {
-    if (params[key] === undefined) delete params[key];
-  }
+
+  // Undefined values need no stripping: JSON.stringify omits them, which
+  // mutation testing confirmed by removing an explicit delete loop here and
+  // watching every test still pass. The loop was dead code pretending to be a
+  // safeguard, and that is worse than no safeguard - it invites the next
+  // reader to trust something that was never doing anything.
+  //
+  // What matters is that `undefined` means "unspecified", so it must NOT
+  // become null: a null would override a backend default with an empty value.
 
   let raw: string;
   try {

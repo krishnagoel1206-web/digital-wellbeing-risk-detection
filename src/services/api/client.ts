@@ -33,46 +33,14 @@ import {
   resolutionDiagnostics,
   type UrlCandidate,
 } from './config';
+import { ApiError } from './errors';
 import { isLocalBackendAvailable, localRequest } from './local';
 
-export type ApiErrorKind =
-  | 'network'
-  | 'timeout'
-  | 'not_ready'
-  | 'client'
-  | 'server'
-  | 'parse';
-
-export class ApiError extends Error {
-  readonly kind: ApiErrorKind;
-  readonly status: number | null;
-  readonly url: string;
-  /** Candidates tried, when the failure was in address resolution. */
-  readonly attempted: UrlCandidate[];
-
-  constructor(
-    kind: ApiErrorKind,
-    message: string,
-    url: string,
-    status: number | null = null,
-    attempted: UrlCandidate[] = []
-  ) {
-    super(message);
-    this.name = 'ApiError';
-    this.kind = kind;
-    this.status = status;
-    this.url = url;
-    this.attempted = attempted;
-  }
-
-  get isNotReady(): boolean {
-    return this.kind === 'not_ready';
-  }
-
-  get isConnectionProblem(): boolean {
-    return this.kind === 'network' || this.kind === 'timeout';
-  }
-}
+// ApiError now lives in ./errors, because client.ts and local.ts import each
+// other and this class was the cycle. Re-exported so existing importers are
+// unaffected.
+export { ApiError } from './errors';
+export type { ApiErrorKind, UrlCandidate } from './errors';
 
 // ---------------------------------------------------------------------------
 // Base URL resolution

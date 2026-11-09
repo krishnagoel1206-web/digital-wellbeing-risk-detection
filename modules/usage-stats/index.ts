@@ -193,6 +193,7 @@ type UsageStatsNativeModule = {
   ): Promise<CaptureResult>;
   getPendingDays(): Promise<string[]>;
   markDaysUploaded(dates: string[]): number;
+  markAllDaysPending(): number;
   getCaptureStatus(): CaptureStatus;
   isPythonAvailable(): boolean;
   configurePython(): Promise<string>;
@@ -380,6 +381,20 @@ export async function captureDailyUsage(
 export async function getPendingDays(): Promise<DailyUsage[]> {
   const raw = await requireNative().getPendingDays();
   return raw.map((entry) => JSON.parse(entry) as DailyUsage);
+}
+
+/**
+ * Queue every captured day for upload again. Returns how many are pending.
+ *
+ * The uploaded flags record that a day reached A backend, not WHICH one. When
+ * the backend changed from a laptop over the network to an interpreter inside
+ * this app, every day was flagged as delivered to a database the app can no
+ * longer see - so without this the user would open a working app showing an
+ * empty history.
+ */
+export function markAllDaysPending(): number {
+  if (!native) return 0;
+  return native.markAllDaysPending();
 }
 
 /** Mark dates the backend accepted. Returns how many remain pending. */

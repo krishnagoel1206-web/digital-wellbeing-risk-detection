@@ -181,6 +181,31 @@ object CapturedDayStore {
     editor.apply()
   }
 
+  /**
+   * Mark every captured day as needing upload again.
+   *
+   * WHY THIS IS NEEDED
+   * ------------------
+   * The uploaded flags record that a day reached A backend - they do not
+   * record WHICH. That was harmless while there was only ever one, and became
+   * wrong the moment the backend moved from a laptop over the network to an
+   * interpreter inside this app: every day was flagged as delivered to a
+   * database that the app can no longer see, so nothing would be re-sent and
+   * the user would open a working app showing an empty history.
+   *
+   * Resending costs nothing. The upsert is idempotent, and the captured day
+   * is the same measurement either way, so re-delivering a day the backend
+   * already holds changes nothing.
+   */
+  fun markAllPending(context: Context) {
+    val store = prefs(context)
+    val editor = store.edit()
+    for (key in store.all.keys) {
+      if (key.startsWith(UPLOADED_PREFIX)) editor.putBoolean(key, false)
+    }
+    editor.apply()
+  }
+
   /** Dates held locally, oldest first. */
   fun capturedDates(context: Context): List<String> =
     prefs(context).all.keys

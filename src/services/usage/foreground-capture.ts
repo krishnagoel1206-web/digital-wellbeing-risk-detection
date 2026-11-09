@@ -24,6 +24,7 @@
 import { AppState } from 'react-native';
 
 import { captureAndFlush } from './capture';
+import { reconcileCapturedHistory } from './reconcile';
 
 /**
  * Minimum gap between foreground captures.
@@ -81,7 +82,24 @@ export async function captureIfDue(reason: string): Promise<void> {
  * Returns the unsubscribe function for the caller's cleanup.
  */
 export function startForegroundCapture(): () => void {
-  void captureIfDue('launch');
+  // Reconcile BEFORE the first capture, not after.
+  //
+  // The phone marks a day uploaded once a backend takes it, without recording
+  // which backend. When the backend moved onto this device its database
+  // started empty while every captured day was still flagged as delivered -
+  // so a capture alone would have found nothing pending and the user would
+  // have opened a working app with no history in it.
+  void (async () => {
+    try {
+      const result = await reconcileCapturedHistory();
+      if (result.requeued > 0) {
+        console.log(`[reconcile] ${result.reason}`);
+      }
+    } catch (error) {
+      console.log(`[reconcile] skipped: ${String(error)}`);
+    }
+    await captureIfDue('launch');
+  })();
 
   // Typed as string rather than AppStateStatus: RN 0.88 types the listener
   // argument more widely than AppState.currentState, so narrowing here would

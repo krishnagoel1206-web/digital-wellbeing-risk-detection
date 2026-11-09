@@ -195,6 +195,18 @@ class UsageStatsModule : Module() {
       return@AsyncFunction CapturedDayStore.pendingDays(context)
     }
 
+    /**
+     * Queue every captured day for upload again.
+     *
+     * Used when the backend changes identity - most consequentially when it
+     * moved from a laptop onto this device, which left every day flagged as
+     * delivered to a database the app can no longer reach.
+     */
+    Function("markAllDaysPending") {
+      CapturedDayStore.markAllPending(context)
+      return@Function CapturedDayStore.pendingDays(context).size
+    }
+
     /** Mark dates the backend accepted, so they stop being re-sent. */
     Function("markDaysUploaded") { dates: List<String> ->
       CapturedDayStore.markUploaded(context, dates)

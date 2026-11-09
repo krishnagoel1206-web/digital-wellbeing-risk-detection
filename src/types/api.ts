@@ -34,6 +34,15 @@ export type HealthResponse = {
    */
   lan_addresses: string[];
   port: number;
+  /**
+   * Which backend answered.
+   *
+   * 'embedded-python' means it ran inside this app, with no network involved;
+   * absent means a development server over HTTP. The distinction matters on
+   * screen: an address and a list of LAN addresses are meaningful for one and
+   * actively misleading for the other.
+   */
+  runtime?: 'embedded-python' | string;
 };
 
 export type MlStatusResponse = {

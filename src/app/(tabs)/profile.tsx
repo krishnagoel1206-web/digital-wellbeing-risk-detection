@@ -178,7 +178,10 @@ export default function ProfileScreen() {
         </ApiStateView>
       </Section>
 
-      <Section title="Backend connection">
+      <Section
+        title={
+          health.data?.runtime === 'embedded-python' ? 'Analysis engine' : 'Backend connection'
+        }>
         <Card>
           <View style={styles.rowBetween}>
             <Text style={[Typography.caption, { color: theme.textSecondary }]}>Status</Text>
@@ -189,31 +192,68 @@ export default function ProfileScreen() {
                 color={health.data ? theme.riskLow : theme.riskHigh}
               />
               <Text style={[Typography.caption, { color: theme.text }]}>
-                {health.data ? 'Connected' : 'Not reachable'}
+                {/* "Connected" describes a network link. When the engine runs
+                    inside the app there is no link to be connected to, and
+                    saying otherwise invites the user to go looking for one
+                    when something is wrong. */}
+                {health.data
+                  ? health.data.runtime === 'embedded-python'
+                    ? 'Ready'
+                    : 'Connected'
+                  : 'Not reachable'}
               </Text>
             </View>
           </View>
 
-          <View style={styles.rowBetween}>
-            <Text style={[Typography.caption, { color: theme.textSecondary }]}>Address</Text>
-            <Text style={[Typography.tabular, { color: theme.text }]} numberOfLines={1}>
-              {getResolvedBaseUrl() ?? 'not resolved'}
-            </Text>
-          </View>
+          {/* An address is meaningful only when the analysis runs somewhere
+              else. When it runs inside this app, showing one - or showing
+              "not resolved" - would suggest a connection that does not exist
+              and cannot fail. */}
+          {health.data?.runtime === 'embedded-python' ? (
+            <>
+              <View style={styles.rowBetween}>
+                <Text style={[Typography.caption, { color: theme.textSecondary }]}>
+                  Runs on
+                </Text>
+                <Text style={[Typography.caption, { color: theme.text }]}>This phone</Text>
+              </View>
+              <View style={styles.rowBetween}>
+                <Text style={[Typography.caption, { color: theme.textSecondary }]}>
+                  Python
+                </Text>
+                <Text style={[Typography.tabular, { color: theme.text }]}>
+                  {health.data.python_version}
+                </Text>
+              </View>
+              <Text style={[Typography.caption, styles.note, { color: theme.textMuted }]}>
+                Every prediction, score and recommendation is computed on this device.
+                Nothing is sent anywhere, and no laptop or internet connection is needed.
+              </Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.rowBetween}>
+                <Text style={[Typography.caption, { color: theme.textSecondary }]}>
+                  Address
+                </Text>
+                <Text style={[Typography.tabular, { color: theme.text }]} numberOfLines={1}>
+                  {getResolvedBaseUrl() ?? 'not resolved'}
+                </Text>
+              </View>
 
-          {getResolvedReason() ? (
-            <Text style={[Typography.caption, { color: theme.textMuted }]}>
-              {getResolvedReason()}
-            </Text>
-          ) : null}
+              {getResolvedReason() ? (
+                <Text style={[Typography.caption, { color: theme.textMuted }]}>
+                  {getResolvedReason()}
+                </Text>
+              ) : null}
 
-          {/* The backend reports its own LAN addresses, so a changed hotspot
-              IP can be read here rather than hunted down on the laptop. */}
-          {health.data?.lan_addresses && health.data.lan_addresses.length > 0 ? (
-            <Text style={[Typography.caption, styles.note, { color: theme.textMuted }]}>
-              Laptop addresses on this network: {health.data.lan_addresses.join(', ')}
-            </Text>
-          ) : null}
+              {health.data?.lan_addresses && health.data.lan_addresses.length > 0 ? (
+                <Text style={[Typography.caption, styles.note, { color: theme.textMuted }]}>
+                  Laptop addresses on this network: {health.data.lan_addresses.join(', ')}
+                </Text>
+              ) : null}
+            </>
+          )}
 
           {health.data ? (
             <Text style={[Typography.caption, styles.note, { color: theme.textMuted }]}>

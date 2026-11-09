@@ -42,7 +42,7 @@ from app.database.models import DataSource
 MINUTES_IN_DAY = 1440
 
 
-def _check_range(name: str, value: float | None, low: float, high: float) -> None:
+def check_range(name: str, value: float | None, low: float, high: float) -> None:
     """Reject a value outside its permitted range.
 
     Mirrors what `Field(ge=low, le=high)` did. None always passes: absence is
@@ -165,7 +165,7 @@ class UsageRecordBase:
         self.record_date = coerce_date(self.record_date)
         _reject_future(self.record_date)
 
-        _check_range(
+        check_range(
             "total_screen_minutes", self.total_screen_minutes, 0, MINUTES_IN_DAY
         )
         for name in (
@@ -175,12 +175,12 @@ class UsageRecordBase:
             "call_duration_minutes",
             "late_night_minutes",
         ):
-            _check_range(name, getattr(self, name), 0, MINUTES_IN_DAY)
+            check_range(name, getattr(self, name), 0, MINUTES_IN_DAY)
         for name in ("app_launches", "notification_count", "unlock_count"):
-            _check_range(name, getattr(self, name), 0, 10_000)
-        _check_range("calls_count", self.calls_count, 0, 500)
-        _check_range("battery_drain_percent", self.battery_drain_percent, 0, 100)
-        _check_range("sleep_hours", self.sleep_hours, 0, 24)
+            check_range(name, getattr(self, name), 0, 10_000)
+        check_range("calls_count", self.calls_count, 0, 500)
+        check_range("battery_drain_percent", self.battery_drain_percent, 0, 100)
+        check_range("sleep_hours", self.sleep_hours, 0, 24)
         _check_text("note", self.note, 280)
 
         check_internal_consistency(

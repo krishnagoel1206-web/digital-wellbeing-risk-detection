@@ -28,13 +28,12 @@ from __future__ import annotations
 
 import datetime as dt
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    PrivateAttr,
-    field_validator,
-    model_validator,
+from dataclasses import dataclass, field
+
+from app.schemas.usage import (
+    check_internal_consistency,
+    check_range,
+    coerce_date,
 )
 
 MINUTES_IN_DAY = 1440
@@ -79,7 +78,8 @@ MAX_PLAUSIBLE_SLEEP_HOURS = 11.0
 MAX_UNOBSERVED_MINUTES = 15
 
 
-class DeviceDayPayload(BaseModel):
+@dataclass(kw_only=True)
+class DeviceDayPayload:
     """One day of usage as measured on the device.
 
     Every behavioural field is optional because Android genuinely cannot
@@ -88,17 +88,15 @@ class DeviceDayPayload(BaseModel):
     null - which means "not known", never zero.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     record_date: dt.date
-    total_screen_minutes: int = Field(ge=0, le=MINUTES_IN_DAY)
+    total_screen_minutes: int
 
-    social_minutes: int | None = Field(default=None, ge=0, le=MINUTES_IN_DAY)
-    gaming_minutes: int | None = Field(default=None, ge=0, le=MINUTES_IN_DAY)
-    productivity_minutes: int | None = Field(default=None, ge=0, le=MINUTES_IN_DAY)
-    app_launches: int | None = Field(default=None, ge=0, le=10_000)
-    unlock_count: int | None = Field(default=None, ge=0, le=10_000)
-    notification_count: int | None = Field(default=None, ge=0, le=10_000)
+    social_minutes: int | None = None
+    gaming_minutes: int | None = None
+    productivity_minutes: int | None = None
+    app_launches: int | None = None
+    unlock_count: int | None = None
+    notification_count: int | None = None
 
     #: How much of this local day the notification listener was observing, and
     #: the day's own length in minutes.
@@ -113,29 +111,18 @@ class DeviceDayPayload(BaseModel):
     #: the model validator. Treating "unverifiable" as "incomplete" would wipe
     #: real notification history the moment the backend was upgraded ahead of
     #: the app.
-    notification_observed_minutes: int | None = Field(
-        default=None, ge=0, le=2 * MINUTES_IN_DAY
-    )
-    notification_day_minutes: int | None = Field(
-        default=None, ge=0, le=2 * MINUTES_IN_DAY
-    )
-    calls_count: int | None = Field(default=None, ge=0, le=500)
-    call_duration_minutes: int | None = Field(default=None, ge=0, le=MINUTES_IN_DAY)
-    battery_drain_percent: float | None = Field(default=None, ge=0, le=100)
-    late_night_minutes: int | None = Field(default=None, ge=0, le=MINUTES_IN_DAY)
-    sleep_hours: float | None = Field(default=None, ge=0, le=24)
+    notification_observed_minutes: int | None = None
+    notification_day_minutes: int | None = None
+    calls_count: int | None = None
+    call_duration_minutes: int | None = None
+    battery_drain_percent: float | None = None
+    late_night_minutes: int | None = None
+    sleep_hours: float | None = None
 
     #: True when sleep_hours is an estimate derived from inactivity rather
     #: than a measurement. Recorded in the note so it is never mistaken for
     #: observed data.
     sleep_is_estimated: bool = False
-
-    #: Set when an estimated sleep figure was discarded as implausible, so
-    #: the sync response can say so rather than just showing a blank.
-    _sleep_rejected: str | None = PrivateAttr(default=None)
-
-    #: Set when a notification count was discarded for incomplete coverage.
-    _notifications_rejected: str | None = PrivateAttr(default=None)
 
     #: False when Android reported no activity for this date. That is NOT the
     #: same as a confirmed zero-usage day: the device retains detailed events
@@ -143,45 +130,51 @@ class DeviceDayPayload(BaseModel):
     #: unknown. Such days are skipped rather than stored as zero.
     had_any_usage: bool = True
 
-    @field_validator("record_date")
-    @classmethod
-    def _reject_future(cls, value: dt.date) -> dt.date:
-        today = dt.date.today()
-        if value > today:
-            raise ValueError(f"record_date {value} is in the future (today is {today})")
-        return value
+    def __post_init__(self) -> None:
+        """Validation, replacing pydantic's field and model validators.
 
-    @model_validator(mode="after")
-    def _check_consistency(self) -> DeviceDayPayload:
-        """The same cross-field rules manual entry enforces.
-
-        Device data is not trusted more than typed data. If the reconstruction
-        produced category minutes exceeding the total, that is a bug in the
-        native module and must surface here rather than reaching the database.
+        Device data is not trusted more than typed data: the cross-field rule
+        is literally the same function manual entry calls, so the two cannot
+        drift apart. See app/schemas/usage.py for why these are dataclasses.
         """
-        categories = {
-            "social_minutes": self.social_minutes,
-            "gaming_minutes": self.gaming_minutes,
-            "productivity_minutes": self.productivity_minutes,
-        }
-        present = {k: v for k, v in categories.items() if v is not None}
-        if present:
-            subtotal = sum(present.values())
-            if subtotal > self.total_screen_minutes:
-                detail = ", ".join(f"{k}={v}" for k, v in present.items())
-                raise ValueError(
-                    f"category minutes ({detail}; total {subtotal}) exceed "
-                    f"total_screen_minutes={self.total_screen_minutes}"
-                )
+        # Accept an ISO string as pydantic did; several callers rely on it.
+        self.record_date = coerce_date(self.record_date)
 
-        if (
-            self.late_night_minutes is not None
-            and self.late_night_minutes > self.total_screen_minutes
-        ):
+        today = dt.date.today()
+        if self.record_date > today:
             raise ValueError(
-                f"late_night_minutes={self.late_night_minutes} exceeds "
-                f"total_screen_minutes={self.total_screen_minutes}"
+                f"record_date {self.record_date} is in the future (today is {today})"
             )
+
+        # Outcomes of the two discard rules below, read by sync_service so the
+        # response can explain a blank rather than leaving the user guessing.
+        self._sleep_rejected: str | None = None
+        self._notifications_rejected: str | None = None
+
+        check_range("total_screen_minutes", self.total_screen_minutes, 0, MINUTES_IN_DAY)
+        for name in (
+            "social_minutes",
+            "gaming_minutes",
+            "productivity_minutes",
+            "call_duration_minutes",
+            "late_night_minutes",
+        ):
+            check_range(name, getattr(self, name), 0, MINUTES_IN_DAY)
+        for name in ("app_launches", "unlock_count", "notification_count"):
+            check_range(name, getattr(self, name), 0, 10_000)
+        for name in ("notification_observed_minutes", "notification_day_minutes"):
+            check_range(name, getattr(self, name), 0, 2 * MINUTES_IN_DAY)
+        check_range("calls_count", self.calls_count, 0, 500)
+        check_range("battery_drain_percent", self.battery_drain_percent, 0, 100)
+        check_range("sleep_hours", self.sleep_hours, 0, 24)
+
+        check_internal_consistency(
+            self.total_screen_minutes,
+            self.social_minutes,
+            self.gaming_minutes,
+            self.productivity_minutes,
+            self.late_night_minutes,
+        )
 
         # A notification count is only meaningful for a day the listener
         # watched from start to finish.
@@ -251,38 +244,53 @@ class DeviceDayPayload(BaseModel):
             )
             self.sleep_hours = None
 
-        return self
 
-
-class SyncRequest(BaseModel):
+@dataclass(kw_only=True)
+class SyncRequest:
     """A batch of measured days from the device."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    days: list[DeviceDayPayload] = Field(min_length=1, max_length=400)
+    days: list[DeviceDayPayload]
 
     #: Which permissions were granted when this batch was collected. Recorded
     #: so the app can explain WHY a field is missing rather than leaving the
     #: user guessing.
-    permissions: dict[str, bool] = Field(default_factory=dict)
+    permissions: dict[str, bool] = field(default_factory=dict)
 
     #: Free-text provenance, e.g. the Android version and module version.
-    device_note: str | None = Field(default=None, max_length=280)
+    device_note: str | None = None
+
+    def __post_init__(self) -> None:
+        # Previously Field(min_length=1, max_length=400). An empty batch is a
+        # client bug worth surfacing rather than a silent no-op, and the upper
+        # bound stops a malformed request from trying to write a decade of
+        # rows in one transaction.
+        if not self.days:
+            raise ValueError("a sync must contain at least one day")
+        if len(self.days) > 400:
+            raise ValueError(
+                f"a sync may contain at most 400 days; got {len(self.days)}"
+            )
+        if self.device_note is not None and len(self.device_note) > 280:
+            raise ValueError(
+                f"device_note is {len(self.device_note)} characters; the maximum is 280"
+            )
 
 
-class SyncDaySkipped(BaseModel):
+@dataclass(kw_only=True)
+class SyncDaySkipped:
     record_date: dt.date
     reason: str
 
 
-class SyncResponse(BaseModel):
+@dataclass(kw_only=True)
+class SyncResponse:
     """What the sync actually did, per day."""
 
     days_received: int
     created: int
     updated: int
     skipped: int
-    skipped_detail: list[SyncDaySkipped] = Field(default_factory=list)
+    skipped_detail: list[SyncDaySkipped] = field(default_factory=list)
 
     #: Dates whose stored row now reflects what the device sent.
     #:
@@ -299,10 +307,10 @@ class SyncResponse(BaseModel):
     #: without this distinction the first kind would stay queued forever and
     #: be re-sent on every capture. Matching on the reason text instead would
     #: make a wording change silently break the queue.
-    accepted_dates: list[dt.date] = Field(default_factory=list)
+    accepted_dates: list[dt.date] = field(default_factory=list)
     #: Fields that arrived null for every day, with the likely reason. Lets
     #: the app tell the user which permission would fill them.
-    missing_fields: dict[str, str] = Field(default_factory=dict)
+    missing_fields: dict[str, str] = field(default_factory=dict)
     first_date: dt.date | None = None
     last_date: dt.date | None = None
-    notes: list[str] = Field(default_factory=list)
+    notes: list[str] = field(default_factory=list)

@@ -33,6 +33,7 @@ import {
   resolutionDiagnostics,
   type UrlCandidate,
 } from './config';
+import { isLocalBackendAvailable, localRequest } from './local';
 
 export type ApiErrorKind =
   | 'network'
@@ -228,6 +229,21 @@ function buildPath(path: string, query?: RequestOptions['query']): string {
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, query, formData, signal } = options;
+
+  // The embedded backend wins whenever the build has one.
+  //
+  // This single branch is what makes the app standalone. Everything below it
+  // - address probing, timeouts, "Lost contact with the backend" - exists
+  // only for a laptop-hosted API, and on a release build none of it runs.
+  // The network path is kept rather than deleted because it is still how the
+  // project is developed: a laptop backend can be inspected, logged and
+  // stepped through in a way an interpreter inside an APK cannot.
+  //
+  // localRequest raises the same ApiError kinds, so no caller, screen or
+  // error panel can tell which transport answered.
+  if (isLocalBackendAvailable()) {
+    return localRequest<T>(path, { method, body, query, formData });
+  }
 
   const base = await resolveBaseUrl();
   const url = `${base}${buildPath(path, query)}`;

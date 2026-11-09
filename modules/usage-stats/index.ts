@@ -194,6 +194,10 @@ type UsageStatsNativeModule = {
   getPendingDays(): Promise<string[]>;
   markDaysUploaded(dates: string[]): number;
   getCaptureStatus(): CaptureStatus;
+  isPythonAvailable(): boolean;
+  configurePython(): Promise<string>;
+  callPython(name: string, paramsJson: string): Promise<string>;
+  pythonRoutes(): string;
 };
 
 // requireOptionalNativeModule returns null instead of throwing when the
@@ -400,4 +404,57 @@ export function getCaptureStatus(): CaptureStatus {
     };
   }
   return native.getCaptureStatus();
+}
+
+// ---------------------------------------------------------------------------
+// Embedded Python backend
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether this build contains the embedded Python interpreter and backend.
+ *
+ * False in Expo Go and in any build without the Chaquopy plugin. The app must
+ * survive that rather than crash: capture, stored history and the charts over
+ * them do not need Python, so the API client falls back to the network
+ * transport instead.
+ */
+export function isPythonAvailable(): boolean {
+  if (!native) return false;
+  try {
+    return native.isPythonAvailable();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Start the backend and point it at this app's private storage.
+ *
+ * Idempotent; callPython does this automatically on first use, so calling it
+ * explicitly is only useful to move the one-off cost to a moment where a
+ * delay is expected rather than mid-screen.
+ */
+export async function configurePython(): Promise<string> {
+  return requireNative().configurePython();
+}
+
+/**
+ * Run one backend endpoint, in-process.
+ *
+ * Returns the raw JSON string {"status", "body"} - deliberately not parsed
+ * here, because the API client already knows how to interpret that shape and
+ * duplicating the error mapping would let the two drift apart.
+ */
+export async function callPython(name: string, paramsJson: string): Promise<string> {
+  return requireNative().callPython(name, paramsJson);
+}
+
+/** Endpoint names this build serves, for diagnostics. */
+export function pythonRoutes(): string[] {
+  if (!native) return [];
+  try {
+    return JSON.parse(native.pythonRoutes()) as string[];
+  } catch {
+    return [];
+  }
 }

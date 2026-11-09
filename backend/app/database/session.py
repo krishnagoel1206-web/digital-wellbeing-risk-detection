@@ -32,7 +32,6 @@ engine: Engine = create_engine(
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 
-@event.listens_for(engine, "connect")
 def _set_sqlite_pragmas(dbapi_connection, _connection_record) -> None:
     """Enable the PRAGMAs SQLite needs but does not default to.
 
@@ -46,6 +45,47 @@ def _set_sqlite_pragmas(dbapi_connection, _connection_record) -> None:
     cursor.close()
 
 
+# Attached as a function rather than with @event.listens_for, so rebind() can
+# attach the same listener to a replacement engine.
+event.listen(engine, "connect", _set_sqlite_pragmas)
+
+
+def rebind(database_url: str) -> None:
+    """Point the engine at a different database, after import time.
+
+    WHY THIS IS NEEDED
+    ------------------
+    The engine above is created when this module is first imported, from
+    whatever settings were cached at that moment. On the laptop that is
+    correct and never changes. On Android it is not: the app's private
+    directory is assigned at runtime, so the real path is known only once
+    mobile_api.configure() has been told it.
+
+    Relying on configure() running before anything imports this module is the
+    kind of ordering assumption that holds until one import chain changes.
+    When it broke in tests the failure was silent and alarming - the device
+    simulation quietly read and wrote the DEVELOPER's database instead of the
+    temporary one, so a refusal test got a real answer and passed data it was
+    never given.
+
+    Rebinding explicitly removes the assumption. The previous engine is
+    disposed so its SQLite file handle is released rather than leaked.
+    """
+    global engine, SessionLocal
+
+    if engine is not None:
+        engine.dispose()
+
+    engine = create_engine(
+        database_url,
+        connect_args={"check_same_thread": False},
+        echo=False,
+        future=True,
+    )
+    event.listen(engine, "connect", _set_sqlite_pragmas)
+    SessionLocal.configure(bind=engine)
+
+
 def init_db() -> None:
     """Create the database file, its directory, and all tables if missing.
 
@@ -53,7 +93,7 @@ def init_db() -> None:
     No migration tool is used - for a single-developer prototype the schema is
     created from the models, and the file can simply be deleted and recreated.
     """
-    settings.ensure_directories()
+    get_settings().ensure_directories()
     Base.metadata.create_all(bind=engine)
 
 

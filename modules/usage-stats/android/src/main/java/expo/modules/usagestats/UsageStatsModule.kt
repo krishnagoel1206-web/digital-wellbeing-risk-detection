@@ -281,6 +281,44 @@ class UsageStatsModule : Module() {
       return@Function NotificationCounterService.observingSince(context)?.toDouble()
     }
 
+    // ----- embedded Python backend ---------------------------------------
+
+    /**
+     * Whether this build contains the embedded Python interpreter.
+     *
+     * The app must work without it - capture, stored history and the charts
+     * over them do not need Python - so JavaScript checks rather than assumes.
+     */
+    Function("isPythonAvailable") {
+      return@Function PythonBridge.isAvailable()
+    }
+
+    /**
+     * Start Python and point it at this app's private storage.
+     *
+     * Async because it opens the database and may unpack the interpreter on
+     * first launch, which must not block the UI thread.
+     */
+    AsyncFunction("configurePython") {
+      return@AsyncFunction PythonBridge.configure(context)
+    }
+
+    /**
+     * Run one backend endpoint, replacing what used to be an HTTP request.
+     *
+     * Async because this is where the ML actually runs: fitting a forecaster
+     * or scoring a baseline takes long enough to drop frames if it ran on the
+     * UI thread.
+     */
+    AsyncFunction("callPython") { name: String, paramsJson: String ->
+      return@AsyncFunction PythonBridge.call(context, name, paramsJson)
+    }
+
+    /** Endpoint names this build serves, for diagnostics. */
+    Function("pythonRoutes") {
+      return@Function PythonBridge.routes()
+    }
+
     /** Diagnostic info, useful when usage looks wrong or empty. */
     AsyncFunction("getDiagnostics") {
       val manager = usageStatsManager()

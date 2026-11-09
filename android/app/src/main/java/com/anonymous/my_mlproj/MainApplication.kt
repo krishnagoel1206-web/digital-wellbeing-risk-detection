@@ -72,11 +72,15 @@ class MainApplication : Application(), ReactApplication {
         .toString()
       Log.i("EmbeddedPython", "OK: $report")
 
-      val arithmetic = Python.getInstance()
-        .getModule("smoke_test")
-        .callAttr("arithmetic_check")
-        .toString()
-      Log.i("EmbeddedPython", arithmetic)
+      // Exercise the real backend, not just the interpreter: configure it
+      // against this app's storage and run one analysis end to end. A build
+      // where Python starts but the backend cannot is a failure worth seeing
+      // at launch rather than when a screen first asks for a number.
+      val configured = expo.modules.usagestats.PythonBridge.configure(this)
+      Log.i("EmbeddedPython", "backend configure -> $configured")
+
+      val health = expo.modules.usagestats.PythonBridge.call(this, "health", "{}")
+      Log.i("EmbeddedPython", "backend health -> $health")
     } catch (e: Throwable) {
       Log.e("EmbeddedPython", "FAILED to start: ${e.message}", e)
     }

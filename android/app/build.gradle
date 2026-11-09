@@ -165,6 +165,36 @@ android {
             keyPassword 'android'
         }
     }
+    // Where the embedded interpreter finds this project's Python.
+    //
+    // `backend` is added as a source ROOT, not `backend/app`, so that `app`
+    // stays a package and `import app.mobile_api` resolves exactly as it does
+    // on the laptop. Copying files into a staging directory at build time
+    // would instead let the phone run a stale copy of code the tests had
+    // already passed against.
+    //
+    // The excludes are not housekeeping. backend/ holds two virtualenvs of
+    // several hundred megabytes; without filtering them the APK would be
+    // unbuildable, and the failure would look like a mysterious size
+    // explosion rather than a missing filter. Tests, scripts, caches and the
+    // developer's own database are excluded because nothing on the device
+    // runs or reads them.
+    sourceSets {
+        main {
+            python {
+                srcDirs += ["../../backend"]
+                exclude "**/.venv/**"
+                exclude "**/.venv-device/**"
+                exclude "**/__pycache__/**"
+                exclude "**/.pytest_cache/**"
+                exclude "tests/**"
+                exclude "scripts/**"
+                exclude "data/**"
+                exclude "**/*.pyc"
+            }
+        }
+    }
+
     buildTypes {
         debug {
             signingConfig signingConfigs.debug

@@ -19,6 +19,22 @@ android {
   }
 }
 
+dependencies {
+  // compileOnly, not implementation: the Chaquopy runtime is contributed by
+  // the APP module, which applies the Chaquopy plugin. This module only needs
+  // the Python class to COMPILE against; packaging a second copy here would
+  // duplicate the native libraries in the APK.
+  //
+  // The dependency is optional at runtime by design - see PythonBridge, which
+  // degrades to a clear "not available in this build" rather than crashing if
+  // the class is absent.
+  // chaquopy_java, not chaquopy: the latter is the native .so for each ABI
+  // and Python version, and carries no Java classes at all - compiling
+  // against it fails with "Unresolved reference 'chaquo'". The Java API
+  // (Python, PyObject, AndroidPlatform) lives in chaquopy_java.
+  compileOnly "com.chaquo.python.runtime:chaquopy_java:17.2.0"
+}
+
 // Unit tests for the capture merge rules.
 //
 // Worth the test infrastructure because of what that code's failure mode is:

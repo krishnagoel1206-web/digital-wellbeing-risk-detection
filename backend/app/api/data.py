@@ -16,7 +16,7 @@ from app.ml.preprocessing import feature_dictionary as fd
 from app.ml.preprocessing.synthetic import PROFILES, generate_history
 from app.schemas.sync import SyncRequest, SyncResponse
 from app.schemas.usage import UsageRecordCreate
-from app.services import csv_import, sync_service, usage_service
+from app.services import csv_import, data_service, sync_service, usage_service
 
 router = APIRouter(prefix="/data", tags=["data"])
 
@@ -118,53 +118,21 @@ def seed_demo(
 ) -> dict:
     """Insert synthetic daily records, tagged so they are never mistaken for real data.
 
-    Returns the injected-anomaly ground truth, which the anomaly-detection
-    module is scored against later.
+    The logic lives in data_service so the phone runs the same code; this
+    turns a rejected request into a status code and nothing else.
     """
-    if profile not in PROFILES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"unknown profile {profile!r}; available: {sorted(PROFILES)}",
+    try:
+        return data_service.seed_demo(
+            db, days=days, profile=profile, seed=seed, replace=replace
         )
-
-    generated = generate_history(days=days, profile_name=profile, seed=seed)
-
-    cleared = 0
-    if replace:
-        cleared = usage_service.delete_by_source(db, DataSource.SYNTHETIC)
-
-    inserted = 0
-    skipped = 0
-    failures: list[str] = []
-
-    for row in generated.records:
-        try:
-            payload = UsageRecordCreate(**row)
-        except Exception as exc:
-            # A generated row failing our own validation is a generator bug.
-            failures.append(f"{row['record_date']}: {exc}")
-            continue
-        try:
-            usage_service.create_record(db, payload)
-            inserted += 1
-        except usage_service.DuplicateDateError:
-            skipped += 1
-
-    return {
-        "profile": profile,
-        "seed": seed,
-        "days_requested": days,
-        "synthetic_rows_cleared": cleared,
-        "inserted": inserted,
-        "skipped_existing_dates": skipped,
-        "generator_failures": failures,
-        "injected_anomalies": generated.anomalies,
-        "notes": generated.notes,
-        "warning": (
-            "This is DEMONSTRATION data. Any model result derived from it must "
-            "not be presented as validated real-world performance."
-        ),
-    }
+    except data_service.BadRequest as exc:
+        # 400, matching what this endpoint returned before the extraction. An
+        # unknown profile name is a bad request, not an unprocessable body -
+        # and changing a status code while moving code is exactly the kind of
+        # silent behaviour change a refactor must not make.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
 
 
 @router.get("/import-history", summary="Past CSV imports and their reports")
@@ -224,63 +192,5 @@ def sync_device_days(
 
 @router.get("/sync-status", summary="What the device has contributed so far")
 def sync_status(db: Session = Depends(get_db)) -> dict:
-    """Summarise device-sourced data, so the app can show sync health."""
-    from sqlalchemy import func, select
-
-    from app.database.models import UsageRecord
-
-    total = db.scalar(
-        select(func.count())
-        .select_from(UsageRecord)
-        .where(UsageRecord.source == DataSource.DEVICE)
-    ) or 0
-    first = db.scalar(
-        select(func.min(UsageRecord.record_date)).where(
-            UsageRecord.source == DataSource.DEVICE
-        )
-    )
-    last = db.scalar(
-        select(func.max(UsageRecord.record_date)).where(
-            UsageRecord.source == DataSource.DEVICE
-        )
-    )
-
-    # Count how many device days actually carry each optional field, so the
-    # app can say "notifications: 3 of 30 days" rather than implying full
-    # coverage.
-    coverage: dict[str, int] = {}
-    #: The earliest device day carrying each field.
-    #:
-    #: Reported because a count alone does not answer the question the user
-    #: actually has. "notifications: 1 of 8 days" looks like a fault; "counts
-    #: begin 2026-11-06" explains it, and lets the app say when a model that
-    #: needs seven such days becomes available instead of only that it cannot
-    #: run yet.
-    first_seen: dict[str, str | None] = {}
-
-    for field in ("notification_count", "calls_count", "unlock_count", "sleep_hours"):
-        column = getattr(UsageRecord, field)
-        condition = (UsageRecord.source == DataSource.DEVICE, column.isnot(None))
-
-        coverage[field] = db.scalar(
-            select(func.count()).select_from(UsageRecord).where(*condition)
-        ) or 0
-
-        earliest = db.scalar(select(func.min(UsageRecord.record_date)).where(*condition))
-        first_seen[field] = earliest.isoformat() if earliest else None
-
-    return {
-        "device_days": total,
-        "first_date": first.isoformat() if first else None,
-        "last_date": last.isoformat() if last else None,
-        "field_coverage": coverage,
-        "field_first_seen": first_seen,
-        "coverage_note": (
-            "field_coverage counts device days that actually carry a value. A "
-            "low count is expected for notifications, which Android cannot "
-            "backfill, and for sleep, which is only estimated when the "
-            "activity gaps allow it. field_first_seen gives the earliest day "
-            "each measurement is present on, which is usually the day its "
-            "permission was granted."
-        ),
-    }
+    """What the device has contributed so far. See data_service.sync_status."""
+    return data_service.sync_status(db)

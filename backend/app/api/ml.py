@@ -77,6 +77,18 @@ def risk_classification(
     return _run(analysis_service.risk_classification, db, scope=scope)
 
 
+@router.get(
+    "/risk-confidence",
+    summary="Bayesian confidence in the risk class, from week-by-week classification",
+)
+def risk_confidence(
+    scope: AnalysisScope = SCOPE,
+    weeks: int = Query(default=12, ge=2, le=52),
+    db: Session = Depends(get_db),
+) -> dict:
+    return _run(analysis_service.risk_confidence, db, scope=scope, weeks=weeks)
+
+
 @router.get("/persona", summary="Closest usage persona")
 def persona(scope: AnalysisScope = SCOPE, db: Session = Depends(get_db)) -> dict:
     return _run(analysis_service.persona, db, scope=scope)

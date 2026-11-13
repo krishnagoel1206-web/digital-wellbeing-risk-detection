@@ -91,6 +91,7 @@ def test_every_route_the_app_uses_exists():
         "health",
         "ml/status",
         "ml/risk-classification",
+        "ml/risk-confidence",
         "ml/forecast",
         "ml/actual-vs-predicted",
         "ml/persona",

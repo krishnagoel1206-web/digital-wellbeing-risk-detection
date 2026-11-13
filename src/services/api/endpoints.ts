@@ -18,6 +18,7 @@ import type {
   PersonaResponse,
   RecommendationsResponse,
   RiskClassificationResponse,
+  RiskConfidenceResponse,
   RiskScoreResponse,
   SeedDemoResponse,
   UsageRecord,
@@ -139,6 +140,10 @@ export type AnalysisScope = 'device' | 'real' | 'all';
 /** The Home dashboard headline: the validated classifier. */
 export const getRiskClassification = (scope: AnalysisScope) =>
   request<RiskClassificationResponse>('/api/ml/risk-classification', { query: { scope } });
+
+/** Bayesian layer: how consistently recent weeks land in each risk class. */
+export const getRiskConfidence = (scope: AnalysisScope, weeks = 12) =>
+  request<RiskConfidenceResponse>('/api/ml/risk-confidence', { query: { scope, weeks } });
 
 export const getForecast = (scope: AnalysisScope, horizon = 7) =>
   request<ForecastResponse>('/api/ml/forecast', { query: { horizon, scope } });

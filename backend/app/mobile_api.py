@@ -403,6 +403,9 @@ def _register() -> None:
             "ml/risk-classification": lambda db, p: a.risk_classification(
                 db, scope=_scope(p)
             ),
+            "ml/risk-confidence": lambda db, p: a.risk_confidence(
+                db, scope=_scope(p), weeks=int(p.get("weeks", 12))
+            ),
             "ml/persona": lambda db, p: a.persona(db, scope=_scope(p)),
             "ml/clustering-report": lambda db, p: a.clustering_report(),
             "ml/anomalies": lambda db, p: a.anomalies(

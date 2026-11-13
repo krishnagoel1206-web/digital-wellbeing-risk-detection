@@ -29,6 +29,7 @@ it is written once, here.
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 import pandas as pd
@@ -36,6 +37,7 @@ from sqlalchemy.orm import Session
 
 from app.database.models import DataSource
 from app.ml.anomaly_detection import personal_baseline as pb
+from app.ml.classification import bayesian_confidence as bayes_conf
 from app.ml.classification import inference as clf_inference
 from app.ml.clustering import inference as cluster_inference
 from app.ml.preprocessing.feature_engineering import build_personal_features
@@ -309,9 +311,12 @@ def forecast(
             ),
         )
 
+    rmse = metrics.get("models", [{}])[0].get("rmse")
+
     return {
         "model": metrics.get("best_model"),
         "horizon": len(predictions),
+        "week_comparison": _week_comparison(daily, predictions, rmse),
         "predictions": [
             {
                 "date": p.date,
@@ -345,6 +350,46 @@ def forecast(
             _provenance_caveat(metrics.get("training_data"), scope),
             metrics.get("sample_size_warning"),
         ],
+    }
+
+
+def _week_comparison(daily: pd.DataFrame, predictions: list, rmse: float | None) -> dict | None:
+    """The week ahead against the last complete week, per day.
+
+    Only stated as a rise or fall when the gap is larger than the model's
+    typical error for a 7-day average (daily RMSE / sqrt(7)); otherwise it is
+    reported as "about the same", because a smaller gap is noise the model
+    cannot distinguish from no change.
+    """
+    if daily.empty or len(predictions) < 7:
+        return None
+    last = daily.sort_values("record_date").tail(7)
+    if len(last) < 7:
+        return None
+    last_avg = float(pd.to_numeric(last["total_screen_minutes"]).mean())
+    next_avg = float(sum(p.predicted_minutes for p in predictions[:7]) / 7)
+    change = next_avg - last_avg
+    threshold = (rmse / math.sqrt(7)) if rmse else 0.0
+    within = abs(change) < threshold
+    if within:
+        summary = (
+            f"About the same as last week ({last_avg / 60:.1f} h a day); the "
+            "difference is within the model's error."
+        )
+    else:
+        direction = "more" if change > 0 else "less"
+        summary = (
+            f"Projected {abs(change) / 60:.1f} h a day {direction} than last week "
+            f"({last_avg / 60:.1f} h) - about {abs(change) * 7 / 60:.1f} h {direction} "
+            "over the week."
+        )
+    return {
+        "last_week_avg_minutes": round(last_avg, 1),
+        "next_week_avg_minutes": round(next_avg, 1),
+        "change_minutes_per_day": round(change, 1),
+        "noise_threshold_minutes": round(threshold, 1),
+        "within_model_error": within,
+        "summary": summary,
     }
 
 
@@ -433,6 +478,86 @@ def risk_classification(
             _today_note(daily),
             metrics.get("expected_ceiling_note"),
         ],
+    }
+
+
+def risk_confidence(
+    db: Session,
+    scope: AnalysisScope = "all",
+    weeks: int = bayes_conf.DEFAULT_MAX_WEEKS,
+) -> dict:
+    """Bayesian confidence in the risk class.
+
+    Each recent week is classified on its own and the soft results are
+    combined with a Dirichlet prior - see ml/classification/bayesian_confidence.py.
+    Uses the same scope and the same day-in-progress rule as every other model.
+    """
+    if not clf_inference.is_trained():
+        raise NotTrained(
+            "The risk classifier is not trained. Run: "
+            "python scripts/train_models.py --only classification"
+        )
+
+    records = usage_service.list_records(db, limit=2000, sources=_sources_for(scope))
+    frame = pd.DataFrame(
+        [
+            {
+                "record_date": r.record_date,
+                "total_screen_minutes": r.total_screen_minutes,
+                "social_minutes": r.social_minutes,
+                "gaming_minutes": r.gaming_minutes,
+                "productivity_minutes": r.productivity_minutes,
+                "app_launches": r.app_launches,
+                "notification_count": r.notification_count,
+                "late_night_minutes": r.late_night_minutes,
+                "sleep_hours": r.sleep_hours,
+                "source": r.source.value,
+            }
+            for r in records
+        ]
+    )
+    frame, excluded = drop_incomplete_today(frame)
+    frame.attrs["excluded_today_minutes"] = excluded
+
+    try:
+        result = bayes_conf.estimate(frame, max_weeks=max(bayes_conf.MIN_WEEKS, min(weeks, 52)))
+    except bayes_conf.InsufficientWeeks as exc:
+        blocker = (
+            f" Weeks were set aside because of missing measurements: {', '.join(exc.missing)}."
+            if exc.missing
+            else ""
+        )
+        raise NotReady(
+            f"Not enough complete weeks yet - {exc.have} usable, {exc.need} needed. "
+            f"A week counts once it has at least {bayes_conf.MIN_DAYS_PER_WEEK} recorded days."
+            + blocker
+        ) from exc
+
+    return {
+        "classes": result.classes,
+        "n_weeks": len(result.weeks),
+        "most_likely_class": result.most_likely_class,
+        "verdict": result.verdict,
+        "plain_language": result.plain_language,
+        "prob_most_common": result.prob_most_common,
+        "prob_elevated_majority": result.prob_elevated_majority,
+        "share_mean": result.share_mean,
+        "share_interval": {k: list(v) for k, v in result.share_interval.items()},
+        "credible_mass": bayes_conf.CREDIBLE_MASS,
+        "prior": "Dirichlet(1, 1, 1) - uniform over the three classes",
+        "posterior_alpha": result.posterior_alpha,
+        "weeks": [
+            {
+                "start": w.start,
+                "end": w.end,
+                "days": w.days,
+                "predicted": w.predicted,
+                "probabilities": w.probabilities,
+                "synthetic_days": w.synthetic_days,
+            }
+            for w in result.weeks
+        ],
+        "caveats": [*result.caveats, _today_note(frame)],
     }
 
 
@@ -580,6 +705,16 @@ def anomalies(
         "days_assessed": len(assessments),
         "days_flagged": sum(1 for a in assessments if a.is_anomalous),
         "severity_counts": severity_counts,
+        "combination_only_days": sum(
+            1 for a in assessments if a.unusual_combination and not a.contributing()
+        ),
+        "features_checked": [pb.FEATURE_LABELS.get(f, f) for f in pb.BASELINE_FEATURES],
+        "combination_method": (
+            "Mahalanobis distance of the day from your own history across all "
+            "measures at once, accounting for how they normally move together, "
+            "with a chi-squared p-value. A day can be unusual as a combination "
+            "even when no single measure is extreme."
+        ),
         "baseline_method": (
             "Median and scaled Median Absolute Deviation over the user's own "
             "history, computed leave-one-out so a day never contributes to the "
@@ -594,6 +729,8 @@ def anomalies(
                 "severity": a.severity,
                 "max_abs_z": a.max_abs_z,
                 "unusual_combination": a.unusual_combination,
+                "mahalanobis_distance": a.mahalanobis_distance,
+                "mahalanobis_p": a.mahalanobis_p,
                 "explanation": a.explanation,
                 "contributing_features": [
                     {

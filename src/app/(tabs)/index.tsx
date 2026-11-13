@@ -28,6 +28,7 @@ import { LineChart } from '@/components/charts/line-chart';
 import { ApiStateView } from '@/components/ui/api-states';
 import { Card } from '@/components/ui/card';
 import { RiskBadge } from '@/components/ui/risk-badge';
+import { SeverityTag } from '@/components/ui/severity-tag';
 import { ScoreRing } from '@/components/ui/score-ring';
 import { Section } from '@/components/ui/section';
 import { StatTile } from '@/components/ui/stat-tile';
@@ -374,10 +375,8 @@ export default function HomeScreen() {
                             <Text style={[Typography.bodyStrong, { color: theme.text }]}>
                               {day.date}
                             </Text>
-                            <RiskBadge
-                              level={day.severity === 'severe' ? 'high' : 'medium'}
-                              size="sm"
-                            />
+                            {/* A change from your own normal, not a risk level. */}
+                            <SeverityTag severity={day.severity} />
                           </View>
                           <Text style={[Typography.caption, { color: theme.textSecondary }]}>
                             {day.explanation}

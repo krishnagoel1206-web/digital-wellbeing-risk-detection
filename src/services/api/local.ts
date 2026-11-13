@@ -71,6 +71,7 @@ function endpointFor(method: string, path: string): string | null {
     'ml/forecast',
     'ml/actual-vs-predicted',
     'ml/risk-classification',
+    'ml/risk-confidence',
     'ml/persona',
     'ml/clustering-report',
     'ml/anomalies',

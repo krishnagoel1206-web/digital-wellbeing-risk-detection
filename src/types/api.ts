@@ -142,6 +142,31 @@ export type RiskClassificationResponse = {
   caveats: (string | null)[];
 };
 
+/** Bayesian confidence in the risk class (week-by-week + Dirichlet posterior). */
+export type RiskConfidenceResponse = {
+  classes: RiskLevelName[];
+  n_weeks: number;
+  most_likely_class: RiskLevelName;
+  verdict: 'very sure' | 'fairly sure' | 'leaning' | 'uncertain';
+  plain_language: string;
+  prob_most_common: Record<RiskLevelName, number>;
+  prob_elevated_majority: number;
+  share_mean: Record<RiskLevelName, number>;
+  share_interval: Record<RiskLevelName, [number, number]>;
+  credible_mass: number;
+  prior: string;
+  posterior_alpha: Record<RiskLevelName, number>;
+  weeks: {
+    start: string;
+    end: string;
+    days: number;
+    predicted: RiskLevelName;
+    probabilities: Record<RiskLevelName, number>;
+    synthetic_days: number;
+  }[];
+  caveats: (string | null)[];
+};
+
 // ---------------------------------------------------------------------------
 // Forecasting
 // ---------------------------------------------------------------------------
@@ -170,6 +195,16 @@ export type ForecastResponse = {
     cv_strategy: string | null;
     naive_baseline_rmse: number | null;
   };
+  /** The week ahead against the last complete week. Null with too little history. */
+  week_comparison: {
+    last_week_avg_minutes: number;
+    next_week_avg_minutes: number;
+    change_minutes_per_day: number;
+    noise_threshold_minutes: number;
+    /** True when the change is smaller than the model's error for a 7-day average. */
+    within_model_error: boolean;
+    summary: string;
+  } | null;
   /**
    * What the model was FITTED on, which decides what a prediction means: a
    * model fitted on generated days demonstrates the method, it does not
@@ -284,7 +319,11 @@ export type AnomalyDay = {
   is_anomalous: boolean;
   severity: AnomalySeverity;
   max_abs_z: number;
+  /** Unusual as a combination while no single measure is extreme. */
   unusual_combination: boolean;
+  /** Multivariate distance from the user's own history; null when it could not be computed. */
+  mahalanobis_distance: number | null;
+  mahalanobis_p: number | null;
   explanation: string;
   contributing_features: {
     feature: string;
@@ -300,6 +339,9 @@ export type AnomalyDay = {
 export type AnomaliesResponse = {
   days_assessed: number;
   days_flagged: number;
+  combination_only_days: number;
+  features_checked: string[];
+  combination_method: string;
   severity_counts: Partial<Record<AnomalySeverity, number>>;
   baseline_method: string;
   days: AnomalyDay[];

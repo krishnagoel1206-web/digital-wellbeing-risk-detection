@@ -78,6 +78,7 @@ describe('path translation', () => {
     ['/api/health', 'health'],
     ['/api/ml/forecast', 'ml/forecast'],
     ['/api/ml/risk-classification', 'ml/risk-classification'],
+    ['/api/ml/risk-confidence', 'ml/risk-confidence'],
     ['/api/ml/model-performance', 'ml/model-performance'],
     ['/api/usage/summary', 'usage/summary'],
     ['/api/data/sync-status', 'data/sync-status'],

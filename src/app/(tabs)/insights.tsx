@@ -31,9 +31,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from '@/components/charts/line-chart';
 import { ApiStateView } from '@/components/ui/api-states';
 import { Card } from '@/components/ui/card';
+import { RiskConfidenceCard } from '@/components/insights/risk-confidence-card';
 import { RiskBadge } from '@/components/ui/risk-badge';
 import { ScopeSelector } from '@/components/ui/scope-selector';
 import { Section } from '@/components/ui/section';
+import { SeverityTag, combinationLine } from '@/components/ui/severity-tag';
 import {
   BottomTabInset,
   MaxContentWidth,
@@ -120,14 +122,19 @@ export default function InsightsScreen() {
     [scope]
   );
   const score = useApi(useCallback(() => api.getRiskScore(scope), [scope]), [scope]);
+  const confidence = useApi(
+    useCallback(() => api.getRiskConfidence(scope, 12), [scope]),
+    [scope]
+  );
 
   const refreshAll = useCallback(() => {
     classification.refetch();
+    confidence.refetch();
     forecast.refetch();
     persona.refetch();
     anomalies.refetch();
     score.refetch();
-  }, [classification, forecast, persona, anomalies, score]);
+  }, [classification, confidence, forecast, persona, anomalies, score]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
@@ -224,6 +231,18 @@ export default function InsightsScreen() {
             </ApiStateView>
           </Section>
 
+          {/* ---------- 1b. Bayesian confidence in the class ---------- */}
+          <Section
+            title="How sure are we?"
+            subtitle="Bayesian check: each recent week classified on its own">
+            <ApiStateView
+              state={confidence}
+              loadingLabel="Weighing the evidence"
+              notReadyHint="Needs at least two weeks with 5+ recorded days each.">
+              {(data) => <RiskConfidenceCard data={data} />}
+            </ApiStateView>
+          </Section>
+
           {/* ---------- 2. forecast ---------- */}
           <Section title="Predicted screen time" subtitle="Next 7 days">
             <ApiStateView
@@ -287,6 +306,25 @@ export default function InsightsScreen() {
                     ))}
                   </View>
 
+                  {data.week_comparison ? (
+                    <View style={styles.row}>
+                      <Ionicons
+                        name={
+                          data.week_comparison.within_model_error
+                            ? 'remove'
+                            : data.week_comparison.change_minutes_per_day > 0
+                              ? 'trending-up'
+                              : 'trending-down'
+                        }
+                        size={16}
+                        color={theme.textSecondary}
+                      />
+                      <Text style={[Typography.caption, styles.flex, { color: theme.text }]}>
+                        {data.week_comparison.summary}
+                      </Text>
+                    </View>
+                  ) : null}
+
                   <View style={[styles.metrics, { borderTopColor: theme.border }]}>
                     <Text style={[Typography.label, { color: theme.textMuted }]}>
                       HOW GOOD IS THIS MODEL
@@ -337,10 +375,8 @@ export default function InsightsScreen() {
                             <Text style={[Typography.bodyStrong, { color: theme.text }]}>
                               {day.date}
                             </Text>
-                            <RiskBadge
-                              level={day.severity === 'severe' ? 'high' : 'medium'}
-                              size="sm"
-                            />
+                            {/* A change from your own normal, not a risk level. */}
+                            <SeverityTag severity={day.severity} />
                           </View>
                           <Text style={[Typography.caption, { color: theme.textSecondary }]}>
                             {day.explanation}
@@ -352,9 +388,19 @@ export default function InsightsScreen() {
                               {feature.label}: {feature.value} vs your usual {feature.your_usual}
                             </Text>
                           ))}
+                          {combinationLine(day) ? (
+                            <Text style={[Typography.caption, { color: theme.textMuted }]}>
+                              {combinationLine(day)}
+                            </Text>
+                          ) : null}
                         </View>
                       </View>
                     ))}
+                    <View style={[styles.anomaly, { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth }]}>
+                      <Text style={[Typography.caption, { color: theme.textMuted }]}>
+                        {`Checked together: ${data.features_checked.join(', ')}. ${data.combination_only_days} day(s) were unusual only as a combination - no single measure stood out. ${data.combination_method}`}
+                      </Text>
+                    </View>
                   </Card>
                 )
               }

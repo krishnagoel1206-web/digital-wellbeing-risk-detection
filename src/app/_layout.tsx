@@ -24,16 +24,21 @@
  * The brief blue flash seen at launch was simply the native splash screen,
  * which is expected behaviour and not a defect.
  *
- * TODO (needs persistent storage): show `onboarding` automatically on first
- * launch only. That requires a stored "hasOnboarded" flag, so it is deferred
- * until we add a storage dependency rather than guessed at now. For the
- * moment onboarding is reachable from the Profile tab.
+ * Launch flow:
+ *   native splash -> StartScreen (every launch: starts the on-phone analysis
+ *   engine and loads the first data) -> Home, or on FIRST launch only ->
+ *   onboarding -> permissions (if usage access is missing) -> Home.
+ * "First launch" is a flag kept in SharedPreferences by the usage-stats
+ * module. Onboarding stays reachable from Profile afterwards.
  */
 
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import * as UsageStats from '@modules/usage-stats';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
+
+import { StartScreen } from '@/components/start/start-screen';
 
 import { ScopeProvider } from '@/hooks/use-scope';
 import { ensureBackgroundCapture } from '@/services/usage/background-capture';
@@ -45,6 +50,12 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const [starting, setStarting] = useState(true);
+
+  const onStarted = useCallback(() => {
+    setStarting(false);
+    if (!UsageStats.getAppFlag('onboarded')) router.push('/onboarding');
+  }, []);
 
   useEffect(() => {
     // hideAsync() rejects harmlessly if the splash is already hidden (for
@@ -100,6 +111,8 @@ export default function RootLayout() {
           options={{ headerShown: true, title: 'Model performance' }}
         />
       </Stack>
+      {/* Drawn over the tabs while the engine starts, so Home loads beneath it. */}
+      {starting ? <StartScreen onDone={onStarted} /> : null}
       </ScopeProvider>
     </ThemeProvider>
   );

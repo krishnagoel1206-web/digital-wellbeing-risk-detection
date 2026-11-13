@@ -49,7 +49,7 @@ export default function ModelPerformanceScreen() {
           <ApiStateView
             state={performance}
             loadingLabel="Loading evaluation report"
-            notReadyHint="Train the models on the backend first.">
+            notReadyHint="The trained models are bundled with the app; reinstalling the latest build restores them.">
             {(data) => (
               <View style={styles.stack}>
                 {/* ================= CLASSIFICATION ================= */}

@@ -186,6 +186,8 @@ type UsageStatsNativeModule = {
   ): Promise<DailyUsageResult>;
   getAppBreakdown(startMs: number, endMs: number): Promise<AppBreakdownResult>;
   readImportFile(name: string): string | null;
+  getAppFlag(key: string): boolean;
+  setAppFlag(key: string, value: boolean): boolean;
   deleteImportFile(name: string): boolean;
   getDiagnostics(): Promise<UsageDiagnostics>;
   captureDailyUsage(
@@ -226,6 +228,24 @@ export function readImportFile(name: string): string | null {
     return native.readImportFile(name);
   } catch {
     return null;
+  }
+}
+
+/** A persistent on/off app setting; false when unset or unavailable. */
+export function getAppFlag(key: string): boolean {
+  if (!native) return false;
+  try {
+    return native.getAppFlag(key);
+  } catch {
+    return false;
+  }
+}
+
+export function setAppFlag(key: string, value: boolean): void {
+  try {
+    native?.setAppFlag(key, value);
+  } catch {
+    // A flag that fails to save only means the welcome screen shows again.
   }
 }
 

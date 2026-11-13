@@ -13,6 +13,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import * as UsageStats from '@modules/usage-stats';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -61,7 +62,7 @@ export default function OnboardingScreen() {
           showsVerticalScrollIndicator={false}>
           {/* Mark */}
           <View style={[styles.mark, { backgroundColor: theme.primarySubtle }]}>
-            <Ionicons name="phone-portrait-outline" size={30} color={theme.primary} />
+            <Ionicons name="pulse-outline" size={30} color={theme.primary} />
           </View>
 
           <View style={styles.heading}>
@@ -110,11 +111,21 @@ export default function OnboardingScreen() {
         {/* Pinned action */}
         <View style={styles.footer}>
           <Pressable
-            // Onboarding is currently reached from Profile, so returning is
-            // the correct action. When the first-launch gate is added (needs
-            // persistent storage) this becomes a replace() onto the tabs so
-            // the user cannot swipe back into onboarding.
-            onPress={() => router.back()}
+            // First launch: remember it, then go straight on to permissions
+            // if usage access is missing (nothing works without it), else to
+            // Home. replace() so Back cannot return to the welcome screen.
+            // Opened later from Profile: just return.
+            onPress={() => {
+              const firstLaunch = !UsageStats.getAppFlag('onboarded');
+              UsageStats.setAppFlag('onboarded', true);
+              if (!firstLaunch && router.canGoBack()) {
+                router.back();
+              } else if (!UsageStats.getPermissionState().usageAccess) {
+                router.replace('/permissions');
+              } else {
+                router.replace('/');
+              }
+            }}
             style={({ pressed }) => [
               styles.cta,
               { backgroundColor: pressed ? theme.primaryPressed : theme.primary },

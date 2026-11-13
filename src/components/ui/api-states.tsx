@@ -19,6 +19,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError, getResolvedBaseUrl, getResolvedReason } from '@/services/api/client';
+import { isLocalBackendAvailable } from '@/services/api/local';
 
 export function LoadingPanel({ label = 'Loading' }: { label?: string }) {
   const theme = useTheme();
@@ -53,12 +54,12 @@ export function NotReadyPanel({
       style={[
         styles.panel,
         styles.alignStart,
-        { backgroundColor: theme.riskMediumSurface, borderColor: theme.border },
+        { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
       ]}>
       <View style={styles.row}>
-        <Ionicons name="information-circle-outline" size={16} color={theme.riskMedium} />
-        <Text style={[Typography.bodyStrong, styles.flex, { color: theme.riskMedium }]}>
-          Not available yet
+        <Ionicons name="time-outline" size={16} color={theme.textSecondary} />
+        <Text style={[Typography.bodyStrong, styles.flex, { color: theme.text }]}>
+          Needs a little more data
         </Text>
       </View>
       <Text style={[Typography.caption, { color: theme.textSecondary }]}>{message}</Text>
@@ -80,7 +81,10 @@ export function ErrorPanel({
 
   // A connection problem needs the URL shown, because the usual cause is the
   // phone and laptop being on different networks or the server not running.
-  const isConnection = error.isConnectionProblem;
+  // On the standalone app there is no laptop: the analysis runs on the phone,
+  // so a failure there is presented as such, never as a missing server.
+  const onPhone = isLocalBackendAvailable();
+  const isConnection = error.isConnectionProblem && !onPhone;
 
   return (
     <View
@@ -96,7 +100,11 @@ export function ErrorPanel({
           color={theme.riskHigh}
         />
         <Text style={[Typography.bodyStrong, styles.flex, { color: theme.riskHigh }]}>
-          {isConnection ? 'Cannot reach the backend' : 'Something went wrong'}
+          {isConnection
+            ? 'Cannot reach the backend'
+            : onPhone
+              ? 'The analysis did not finish'
+              : 'Something went wrong'}
         </Text>
       </View>
 

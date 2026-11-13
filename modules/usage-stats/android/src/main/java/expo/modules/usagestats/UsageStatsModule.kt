@@ -249,6 +249,22 @@ class UsageStatsModule : Module() {
       return@Function if (file.isFile) file.readText() else null
     }
 
+    /**
+     * Small persistent app flags (e.g. "onboarded"). SharedPreferences rather
+     * than a JS storage library: the app already ships this module, and a
+     * boolean that must survive restarts does not justify a new dependency.
+     */
+    Function("getAppFlag") { key: String ->
+      return@Function context.getSharedPreferences(APP_FLAGS, Context.MODE_PRIVATE)
+        .getBoolean(key, false)
+    }
+
+    Function("setAppFlag") { key: String, value: Boolean ->
+      context.getSharedPreferences(APP_FLAGS, Context.MODE_PRIVATE)
+        .edit().putBoolean(key, value).apply()
+      return@Function true
+    }
+
     /** Remove an import file once it has been processed. */
     Function("deleteImportFile") { name: String ->
       return@Function importFile(name)?.delete() ?: false
@@ -1017,6 +1033,7 @@ class UsageStatsModule : Module() {
     // Event type constants, compared numerically so the same code works
     // across API levels. ACTIVITY_RESUMED (29+) and MOVE_TO_FOREGROUND (21+)
     // are the same value, as are ACTIVITY_PAUSED and MOVE_TO_BACKGROUND.
+    private const val APP_FLAGS = "app_flags"
     private const val EVENT_ACTIVITY_RESUMED = 1
     private const val EVENT_ACTIVITY_PAUSED = 2
     private const val EVENT_ACTIVITY_STOPPED = 23

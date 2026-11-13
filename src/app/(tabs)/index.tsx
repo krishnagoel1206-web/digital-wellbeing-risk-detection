@@ -172,7 +172,7 @@ export default function HomeScreen() {
             <ApiStateView
               state={risk}
               loadingLabel="Assessing your usage"
-              notReadyHint="Add more daily records, or train the model on the backend.">
+              notReadyHint="Keep using your phone as normal - this fills in as days are recorded.">
               {(data) => (
                 <Card>
                   <View style={styles.heroRow}>

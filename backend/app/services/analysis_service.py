@@ -29,6 +29,7 @@ it is written once, here.
 
 from __future__ import annotations
 
+import datetime as dt
 import math
 from typing import Literal
 
@@ -91,7 +92,15 @@ def _sources_for(scope: AnalysisScope, db: Session | None = None) -> list[DataSo
 
 
 def _device_day_count(db: Session) -> int:
-    return len(usage_service.list_records(db, limit=2000, sources=[DataSource.DEVICE]))
+    """FINISHED phone-measured days. Today is still accumulating and is dropped
+    from every model, so counting it here would switch the imports off one day
+    early - observed on the phone as "you have 13" with 14 device rows."""
+    today = dt.date.today()
+    return sum(
+        1
+        for r in usage_service.list_records(db, limit=2000, sources=[DataSource.DEVICE])
+        if r.record_date < today
+    )
 
 
 def _daily_frame(

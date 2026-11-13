@@ -150,3 +150,14 @@ def test_unusual_days_run_on_imported_history(db_session):
     assert out["days_assessed"] >= 14
     flagged = {d["date"] for d in out["days"] if d["is_anomalous"]}
     assert str(ago(2)) in {str(x) for x in flagged}
+
+
+def test_todays_unfinished_phone_day_does_not_switch_imports_off(db_session):
+    # 13 finished phone days + today's partial one: still short of 14 usable,
+    # so the imports must stay in. (The phone showed "you have 13" before.)
+    data_service.import_wellbeing(db_session, [wb(ago(n)) for n in range(14, 27)])
+    for n in range(0, 14):
+        add(db_session, ago(n), DataSource.DEVICE, 400)
+    assert DataSource.WELLBEING in analysis_service._sources_for("device", db_session)
+    out = analysis_service.anomalies(db_session, limit=5, scope="device")
+    assert out["days_assessed"] == 26

@@ -40,7 +40,23 @@ data class DayFacts(
    */
   val hadAnyUsage: Boolean,
   val totalScreenMinutes: Int,
+  /**
+   * Which version of the screen-time calculation produced the figure.
+   * Days stored before this field existed read as 1.
+   */
+  val calcVersion: Int = 1,
 )
+
+/**
+ * The current screen-time calculation. Bump when the calculation changes in
+ * a way that makes earlier stored figures wrong, so they can be re-read.
+ *
+ *   1  sessions closed only by the next app's RESUMED or by screen-off;
+ *      inflated the launcher several fold (10h 31m vs 5h 58m in DW).
+ *   2  activity-keyed sessions closed by their own PAUSED/STOPPED,
+ *      non-overlapping, launcher and system UI excluded (5h 48m).
+ */
+const val CURRENT_CALC_VERSION = 2
 
 /** What storing a day did. */
 enum class PutResult {
@@ -80,6 +96,14 @@ enum class PutResult {
  *    events are aging out mid-window and the earlier, fuller read is the
  *    better measurement.
  *
+ * 2a. EXCEPT a re-read by a NEWER calculation that still sees the day's
+ *    activity. Rules 2 and 3 protect a measurement from being degraded by a
+ *    worse READ of the same thing; they were never meant to protect a figure
+ *    the calculation itself got wrong. When the calculation is fixed, a
+ *    day still inside Android's window is re-read correctly and must be
+ *    allowed to go DOWN. A day that has aged out (no activity seen) is
+ *    still refused by rule 2 - the old figure is then the only one there is.
+ *
  * 4. TODAY is always replaced. Its total is still accumulating, so the newest
  *    read is by definition the most complete. Rules 2 and 3 are deliberately
  *    NOT applied, or the current day would freeze at its first reading of the
@@ -99,6 +123,11 @@ fun decideMerge(
   if (stored == null) return PutResult.CREATED
 
   if (!isToday) {
+    // Rule 2a: a newer calculation that can still see the day replaces it.
+    if (incoming.hadAnyUsage && incoming.calcVersion > stored.calcVersion) {
+      return if (identical) PutResult.UNCHANGED else PutResult.UPDATED
+    }
+
     // Rule 2: an empty read never erases a measured day.
     if (stored.hadAnyUsage && !incoming.hadAnyUsage) return PutResult.REFUSED_DEGRADED
 

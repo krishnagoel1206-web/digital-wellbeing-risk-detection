@@ -110,6 +110,7 @@ object CapturedDayStore {
         DayFacts(
           hadAnyUsage = it.optBoolean("hadAnyUsage", false),
           totalScreenMinutes = it.optInt("totalScreenMinutes", 0),
+          calcVersion = it.optInt("calcVersion", 1),
         )
       }
     }
@@ -117,6 +118,7 @@ object CapturedDayStore {
     val incoming = DayFacts(
       hadAnyUsage = payload.optBoolean("hadAnyUsage", false),
       totalScreenMinutes = payload.optInt("totalScreenMinutes", 0),
+      calcVersion = payload.optInt("calcVersion", 1),
     )
 
     val decision = decideMerge(

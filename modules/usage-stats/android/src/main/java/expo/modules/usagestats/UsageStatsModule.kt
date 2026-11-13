@@ -52,10 +52,12 @@ import kotlin.math.min
  *
  * SESSION RECONSTRUCTION
  * ----------------------
- * A session opens on ACTIVITY_RESUMED and closes on the next ACTIVITY_PAUSED,
- * ACTIVITY_STOPPED, SCREEN_NON_INTERACTIVE or DEVICE_SHUTDOWN for that
- * package - or when a different package comes to the foreground, since only
- * one app is foreground at a time.
+ * Each ACTIVITY is followed from ACTIVITY_RESUMED to its own ACTIVITY_PAUSED
+ * or ACTIVITY_STOPPED, and every open activity is closed at
+ * SCREEN_NON_INTERACTIVE, KEYGUARD_SHOWN or DEVICE_SHUTDOWN. Where two apps
+ * overlap, the time goes to the one that came to the front most recently, so
+ * sessions never overlap and per-app minutes add up exactly to the total.
+ * See collectSessions for why this replaced the earlier rule.
  *
  * Note ACTIVITY_RESUMED (29+) and MOVE_TO_FOREGROUND (21+) are the SAME
  * constant value 1, as are ACTIVITY_PAUSED and MOVE_TO_BACKGROUND at 2, so
@@ -400,6 +402,30 @@ class UsageStatsModule : Module() {
   /** One continuous period with a single app in the foreground. */
   private data class Session(val packageName: String, val start: Long, val end: Long)
 
+  /**
+   * Foreground sessions in [startMs, endMs), non-overlapping, newest-wins.
+   *
+   * WHY ACTIVITY-KEYED SESSIONS (the bug this replaced)
+   * ---------------------------------------------------
+   * The previous rule ignored ACTIVITY_PAUSED / ACTIVITY_STOPPED entirely and
+   * kept a session open until a DIFFERENT package was resumed or the screen
+   * went off. It was introduced because PAUSED/STOPPED are per activity: a
+   * STOPPED for WhatsApp's CommunityNavigation arriving just after RESUMED for
+   * its Conversation screen ended a live WhatsApp session.
+   *
+   * But ignoring them over-corrected badly. Any time an app left the front
+   * without another app announcing itself, the session simply stayed open.
+   * Replayed against the phone's own event log (dumpsys usagestats) for
+   * 13 Nov up to 18:36:
+   *
+   *     old rule:  10h 31m   (the launcher alone accrued 5h 01m)
+   *     this rule:  5h 48m
+   *     Digital Wellbeing at the same moment: 5h 58m
+   *
+   * Keying open sessions by package AND activity class fixes the original
+   * problem properly: a STOPPED for one activity can only close that same
+   * activity, never a sibling screen of the same app that is still in front.
+   */
   private fun collectSessions(startMs: Long, endMs: Long): List<Session> {
     val manager = usageStatsManager()
     // Query a little before the window so a session already in progress at
@@ -407,77 +433,81 @@ class UsageStatsModule : Module() {
     val lookBack = 12L * 60 * 60 * 1000
     val events = manager.queryEvents(startMs - lookBack, endMs)
 
-    val sessions = mutableListOf<Session>()
-    var openPackage: String? = null
-    var openStart = 0L
+    // "package/activity" -> (package, start)
+    val open = HashMap<String, Pair<String, Long>>()
+    val raw = mutableListOf<Session>()
+
+    fun closeAll(at: Long) {
+      for ((pkg, s) in open.values) if (at > s) raw.add(Session(pkg, s, at))
+      open.clear()
+    }
 
     val event = UsageEvents.Event()
     while (events.hasNextEvent()) {
       events.getNextEvent(event)
+      val pkg = event.packageName ?: continue
+      val key = "$pkg/${event.className}"
 
       when (event.eventType) {
         // ACTIVITY_RESUMED == MOVE_TO_FOREGROUND == 1.
-        // A RESUMED is the only reliable "this app is now in front" signal,
-        // so each one closes whatever was open and starts a new session.
-        EVENT_ACTIVITY_RESUMED -> {
-          if (openPackage != null) {
-            sessions.add(Session(openPackage, openStart, event.timeStamp))
-          }
-          openPackage = event.packageName
-          openStart = event.timeStamp
+        EVENT_ACTIVITY_RESUMED -> if (!open.containsKey(key)) open[key] = pkg to event.timeStamp
+
+        // ACTIVITY_PAUSED == MOVE_TO_BACKGROUND == 2, ACTIVITY_STOPPED == 23.
+        // Close only the activity they name.
+        EVENT_ACTIVITY_PAUSED,
+        EVENT_ACTIVITY_STOPPED -> open.remove(key)?.let { (p, s) ->
+          if (event.timeStamp > s) raw.add(Session(p, s, event.timeStamp))
         }
 
-        // The screen going off, the device locking, or shutting down all end
+        // The screen going off, the device locking, or shutting down end all
         // foreground use regardless of which app was in front.
         EVENT_SCREEN_NON_INTERACTIVE,
         EVENT_KEYGUARD_SHOWN,
-        EVENT_DEVICE_SHUTDOWN -> {
-          if (openPackage != null) {
-            sessions.add(Session(openPackage, openStart, event.timeStamp))
-            openPackage = null
-          }
-        }
-
-        // ACTIVITY_PAUSED (2) and ACTIVITY_STOPPED (23) are DELIBERATELY
-        // IGNORED.
-        //
-        // They are emitted per ACTIVITY, not per app, so navigating between
-        // screens inside one app produces a PAUSED/STOPPED for the activity
-        // being left while the app itself stays in front. Acting on them
-        // closed sessions that were still live and silently discarded the
-        // time until the next RESUMED.
-        //
-        // Measured on a real device: screen time came out around 4.9h against
-        // roughly 5.8h in Digital Wellbeing. The event dump showed the cause
-        // directly - e.g. RESUMED(whatsapp/Conversation) at 22:50:00 followed
-        // by STOPPED(whatsapp/CommunityNavigation) at 22:50:01, which ended a
-        // session that had just begun and dropped the next 28 seconds.
-        //
-        // They can also arrive out of order for apps that are already in the
-        // background, which makes them unusable as a session terminator.
-        else -> Unit
+        EVENT_DEVICE_SHUTDOWN -> closeAll(event.timeStamp)
       }
     }
 
-    // A session still open when the stream ends is closed at the earlier of
-    // the window edge and NOW. Clamping to now matters because the window for
-    // "today" ends at tomorrow's midnight, and closing at that edge would
-    // attribute hours that have not happened yet.
-    if (openPackage != null) {
-      val closeAt = min(endMs, System.currentTimeMillis())
-      if (closeAt > openStart) {
-        sessions.add(Session(openPackage, openStart, closeAt))
-      }
-    }
+    // Still open when the stream ends: close at the earlier of the window edge
+    // and NOW, so "today" never claims hours that have not happened yet.
+    closeAll(min(endMs, System.currentTimeMillis()))
 
-    // Clip to the requested window and discard anything degenerate.
-    val clipped = sessions.mapNotNull { session ->
+    val clipped = mutableListOf<Session>()
+    for (session in nonOverlapping(raw)) {
       val clippedStart = max(session.start, startMs)
       val clippedEnd = min(session.end, endMs)
-      if (clippedEnd > clippedStart) Session(session.packageName, clippedStart, clippedEnd) else null
+      if (clippedEnd > clippedStart) clipped.add(Session(session.packageName, clippedStart, clippedEnd))
     }
-
     return mergeAdjacent(clipped)
+  }
+
+  /**
+   * Resolve overlapping sessions so each instant belongs to exactly one app:
+   * the one whose session started most recently (the app most recently brought
+   * to the front). Overlaps come from split screen, picture-in-picture and the
+   * few milliseconds of a hand-over. Without this, summing sessions counts
+   * that time twice; with it, per-app minutes add up to the total exactly.
+   */
+  private fun nonOverlapping(sessions: List<Session>): List<Session> {
+    if (sessions.isEmpty()) return sessions
+    val bounds = sessions.flatMap { listOf(it.start, it.end) }.distinct().sorted()
+    val byStart = sessions.sortedBy { it.start }
+    val out = mutableListOf<Session>()
+    val active = mutableListOf<Session>()
+    var next = 0
+    for (i in 0 until bounds.size - 1) {
+      val a = bounds[i]
+      val b = bounds[i + 1]
+      while (next < byStart.size && byStart[next].start <= a) active.add(byStart[next++])
+      active.removeAll { it.end <= a }
+      val winner = active.filter { it.end >= b }.maxByOrNull { it.start } ?: continue
+      val last = out.lastOrNull()
+      if (last != null && last.packageName == winner.packageName && last.end == a) {
+        out[out.size - 1] = last.copy(end = b)
+      } else {
+        out.add(Session(winner.packageName, a, b))
+      }
+    }
+    return out
   }
 
   /**
@@ -576,16 +606,22 @@ class UsageStatsModule : Module() {
     }
 
   /**
-   * Packages whose time is NOT counted at all.
+   * Packages whose time is NOT counted in screen time: the launcher (home
+   * screen) and the system UI.
    *
-   * Only this app. Counting our own foreground time would mean that checking
-   * your usage increases your usage.
+   * Re-measured once sessions were reconstructed correctly. The earlier note
+   * here concluded Digital Wellbeing counts launcher time, but that was
+   * measured with the old session rule, which inflated the launcher several
+   * fold. Against the same event log, 13 Nov to 18:36:
    *
-   * Note Digital Wellbeing does count this app, so its total will always sit
-   * slightly above ours. That is a deliberate definitional difference, not an
-   * error.
+   *     launcher counted    6h 22m
+   *     launcher excluded   5h 48m      Digital Wellbeing: 5h 58m
+   *
+   * This app IS counted now, because Digital Wellbeing counts it (it appears
+   * as its own slice there), and matching that figure is the point.
    */
-  private fun timeExcludedPackages(): Set<String> = setOf(context.packageName)
+  private fun timeExcludedPackages(pm: PackageManager): Set<String> =
+    launchExcludedPackages(pm) - context.packageName + "android"
 
   /**
    * Packages whose time COUNTS but whose appearances are not "app opens".
@@ -670,13 +706,12 @@ class UsageStatsModule : Module() {
     )
 
     val byDate = linkedMapOf<String, DayTotals>()
-    val timeExcluded = timeExcludedPackages()
+    val timeExcluded = timeExcludedPackages(pm)
     val launchExcluded = launchExcludedPackages(pm)
 
     for (session in sessions) {
-      // Only this app is left out of time entirely. The launcher and system
-      // UI DO count toward screen time (Digital Wellbeing counts them too),
-      // but are not counted as app opens further below.
+      // The launcher and system UI are navigation, not app use - left out of
+      // screen time and of app opens (see timeExcludedPackages).
       if (session.packageName in timeExcluded) continue
 
       val info = infoCache.getOrPut(session.packageName) { applicationInfo(session.packageName, pm) }
@@ -741,9 +776,11 @@ class UsageStatsModule : Module() {
       if (notificationAccess) NotificationCounterService.countsByDate(context) else emptyMap()
     val observingSince = NotificationCounterService.observingSince(context)
 
-    // Session boundaries, excluding this app, feed the sleep estimate.
+    // Session boundaries feed the sleep estimate. ANY use of the phone -
+    // including the home screen - means the person was awake, so only this
+    // app is left out (opening it is not evidence about sleep either way).
     val boundaries = sessions
-      .filter { it.packageName !in timeExcluded }
+      .filter { it.packageName != context.packageName }
       .map { it.start to it.end }
       .sortedBy { it.first }
 
@@ -832,7 +869,9 @@ class UsageStatsModule : Module() {
           "sleepIsEstimated" to true,
           "sleepConfident" to (sleep?.confident ?: false),
           "sleepReason" to sleep?.reason,
-          "hadAnyUsage" to (totals != null)
+          "hadAnyUsage" to (totals != null),
+          // Lets the store tell a corrected re-read from a degraded one.
+          "calcVersion" to CURRENT_CALC_VERSION
         )
       )
       date = date.plusDays(1)
@@ -907,7 +946,7 @@ class UsageStatsModule : Module() {
     val totals = mutableMapOf<String, Long>()
     val launches = mutableMapOf<String, Int>()
     val launchExcluded = launchExcludedPackages(pm)
-    val timeExcluded = timeExcludedPackages()
+    val timeExcluded = timeExcludedPackages(pm)
 
     for (session in sessions) {
       totals[session.packageName] = (totals[session.packageName] ?: 0) + (session.end - session.start)
@@ -954,6 +993,8 @@ class UsageStatsModule : Module() {
     // across API levels. ACTIVITY_RESUMED (29+) and MOVE_TO_FOREGROUND (21+)
     // are the same value, as are ACTIVITY_PAUSED and MOVE_TO_BACKGROUND.
     private const val EVENT_ACTIVITY_RESUMED = 1
+    private const val EVENT_ACTIVITY_PAUSED = 2
+    private const val EVENT_ACTIVITY_STOPPED = 23
     private const val EVENT_SCREEN_NON_INTERACTIVE = 16
     private const val EVENT_KEYGUARD_SHOWN = 17
     private const val EVENT_DEVICE_SHUTDOWN = 26

@@ -22,8 +22,56 @@ import org.junit.Test
  */
 class CaptureMergeTest {
 
-  private fun facts(minutes: Int, hadUsage: Boolean = true) =
-    DayFacts(hadAnyUsage = hadUsage, totalScreenMinutes = minutes)
+  private fun facts(minutes: Int, hadUsage: Boolean = true, version: Int = 1) =
+    DayFacts(hadAnyUsage = hadUsage, totalScreenMinutes = minutes, calcVersion = version)
+
+  // ------------------------------------------------------------------
+  // Rule 2a: a corrected calculation may lower a past day
+  // ------------------------------------------------------------------
+
+  @Test
+  fun a_newer_calculation_may_lower_a_past_day_it_can_still_see() {
+    // 13 Nov: stored at 631 min by the old session rule, re-read at 348 by
+    // the corrected one while Android still holds the events.
+    assertEquals(
+      PutResult.UPDATED,
+      decideMerge(
+        stored = facts(631, version = 1),
+        incoming = facts(348, version = 2),
+        isToday = false,
+        identical = false,
+      ),
+    )
+  }
+
+  @Test
+  fun a_newer_calculation_cannot_erase_a_day_that_has_aged_out() {
+    // Same correction, nine days later: no events left. The old figure is the
+    // only record and must survive, inflated or not.
+    assertEquals(
+      PutResult.REFUSED_DEGRADED,
+      decideMerge(
+        stored = facts(631, version = 1),
+        incoming = facts(0, hadUsage = false, version = 2),
+        isToday = false,
+        identical = false,
+      ),
+    )
+  }
+
+  @Test
+  fun once_corrected_a_day_is_protected_again_by_the_usual_rules() {
+    // Both reads by the current calculation: a smaller one is degradation.
+    assertEquals(
+      PutResult.REFUSED_DEGRADED,
+      decideMerge(
+        stored = facts(348, version = 2),
+        incoming = facts(300, version = 2),
+        isToday = false,
+        identical = false,
+      ),
+    )
+  }
 
   // ------------------------------------------------------------------
   // Nothing stored yet

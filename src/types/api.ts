@@ -73,7 +73,26 @@ export type MlStatusResponse = {
  * quietly disagreed with the API: code could not name the provenance that
  * matters most, and `records_by_source.device` was not even expressible.
  */
-export type DataSourceName = 'manual' | 'csv' | 'device' | 'synthetic';
+export type DataSourceName = 'manual' | 'csv' | 'device' | 'synthetic' | 'wellbeing';
+
+/** One day copied from Digital Wellbeing's history. */
+export type WellbeingDay = {
+  date: string;
+  screen_minutes: number;
+  unlocks: number | null;
+  notifications: number | null;
+};
+
+/** Result of data/import-wellbeing. */
+export type WellbeingImportResult = {
+  inserted: string[];
+  replaced_demo: string[];
+  refreshed: string[];
+  replaced_old_phone_reading: { date: string; phone_minutes: number; wellbeing_minutes: number }[];
+  kept: { date: string; reason: string }[];
+  rejected: { date: string; reason: string }[];
+  counts: Record<string, number>;
+};
 
 export type UsageRecord = {
   id: number;

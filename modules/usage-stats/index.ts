@@ -185,6 +185,8 @@ type UsageStatsNativeModule = {
     lateNightEndHour: number
   ): Promise<DailyUsageResult>;
   getAppBreakdown(startMs: number, endMs: number): Promise<AppBreakdownResult>;
+  readImportFile(name: string): string | null;
+  deleteImportFile(name: string): boolean;
   getDiagnostics(): Promise<UsageDiagnostics>;
   captureDailyUsage(
     days: number,
@@ -212,6 +214,29 @@ const NOT_AVAILABLE =
 function requireNative(): UsageStatsNativeModule {
   if (!native) throw new Error(NOT_AVAILABLE);
   return native;
+}
+
+/**
+ * Contents of a file in this app's external files folder, or null.
+ * Used for one-off imports placed there over USB.
+ */
+export function readImportFile(name: string): string | null {
+  if (!native) return null;
+  try {
+    return native.readImportFile(name);
+  } catch {
+    return null;
+  }
+}
+
+/** Delete an import file after it has been processed. */
+export function deleteImportFile(name: string): boolean {
+  if (!native) return false;
+  try {
+    return native.deleteImportFile(name);
+  } catch {
+    return false;
+  }
 }
 
 /** Whether the native module is present in this build at all. */

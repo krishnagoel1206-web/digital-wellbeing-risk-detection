@@ -235,6 +235,25 @@ class UsageStatsModule : Module() {
      * Per-app totals over the whole range, so the UI can show which apps
      * dominate and let the user correct a category if Android's is wrong.
      */
+    /**
+     * Read a file placed in this app's own external files folder
+     * (Android/data/<package>/files), or null if it is not there.
+     *
+     * Used for one-off imports delivered over USB - e.g. history copied from
+     * Digital Wellbeing, which keeps daily totals for weeks after Android has
+     * discarded the detailed events this app reads. Only bare file names are
+     * accepted, so nothing outside that folder can be reached.
+     */
+    Function("readImportFile") { name: String ->
+      val file = importFile(name) ?: return@Function null
+      return@Function if (file.isFile) file.readText() else null
+    }
+
+    /** Remove an import file once it has been processed. */
+    Function("deleteImportFile") { name: String ->
+      return@Function importFile(name)?.delete() ?: false
+    }
+
     AsyncFunction("getAppBreakdown") { startMs: Double, endMs: Double ->
       if (!hasUsageAccess()) throw PermissionDeniedException()
       return@AsyncFunction buildAppBreakdown(startMs.toLong(), endMs.toLong())
@@ -390,6 +409,12 @@ class UsageStatsModule : Module() {
     } else {
       mode == AppOpsManager.MODE_ALLOWED
     }
+  }
+
+  private fun importFile(name: String): java.io.File? {
+    if (!Regex("^[A-Za-z0-9_.-]{1,64}$").matches(name) || name.startsWith(".")) return null
+    val dir = context.getExternalFilesDir(null) ?: return null
+    return java.io.File(dir, name)
   }
 
   private fun usageStatsManager(): UsageStatsManager =

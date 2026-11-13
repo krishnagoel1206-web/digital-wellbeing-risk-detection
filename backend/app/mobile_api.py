@@ -425,6 +425,9 @@ def _register() -> None:
             "data/feature-dictionary": _feature_dictionary,
             "data/sync": _sync,
             "data/sync-status": lambda db, p: d.sync_status(db),
+            "data/import-wellbeing": lambda db, p: d.import_wellbeing(
+                db, p.get("days", []), read_at=p.get("read_at")
+            ),
             "data/seed-demo": lambda db, p: d.seed_demo(
                 db,
                 days=int(p.get("days", 60)),

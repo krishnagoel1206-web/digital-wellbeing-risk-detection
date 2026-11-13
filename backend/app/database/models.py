@@ -72,6 +72,11 @@ class DataSource(str, enum.Enum):
     CSV = "csv"
     DEVICE = "device"
     SYNTHETIC = "synthetic"
+    #: Copied from Digital Wellbeing's own history screens for days the app
+    #: could not measure (Android keeps detailed events for about a week,
+    #: Digital Wellbeing keeps its daily totals for about four). Real data
+    #: about this phone, but not measured by this app, so kept distinct.
+    WELLBEING = "wellbeing"
 
 
 class UsageRecord(Base):

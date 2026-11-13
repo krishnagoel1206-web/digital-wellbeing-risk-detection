@@ -83,6 +83,7 @@ function endpointFor(method: string, path: string): string | null {
     'data/feature-dictionary',
     'data/sync',
     'data/sync-status',
+    'data/import-wellbeing',
     'data/seed-demo',
   ]);
 

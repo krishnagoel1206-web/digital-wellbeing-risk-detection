@@ -35,6 +35,7 @@ from typing import Literal
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.database.models import DataSource
 from app.ml.anomaly_detection import personal_baseline as pb
 from app.ml.classification import bayesian_confidence as bayes_conf
@@ -71,12 +72,26 @@ class NotTrained(NotReady):
 AnalysisScope = Literal["device", "real", "all"]
 
 
-def _sources_for(scope: AnalysisScope) -> list[DataSource] | None:
+def _sources_for(scope: AnalysisScope, db: Session | None = None) -> list[DataSource] | None:
+    """Which provenances a scope covers.
+
+    Digital Wellbeing imports always count as "real". Under "device" they are
+    included only while the app has fewer phone-measured days than a personal
+    baseline needs: they exist to bridge that gap, and once the app's own
+    measurements are enough on their own, the analysis rests on those alone.
+    """
     if scope == "device":
-        return [DataSource.DEVICE]
+        sources = [DataSource.DEVICE]
+        if db is not None and _device_day_count(db) < get_settings().min_days_for_baseline:
+            sources.append(DataSource.WELLBEING)
+        return sources
     if scope == "real":
-        return [DataSource.DEVICE, DataSource.MANUAL, DataSource.CSV]
+        return [DataSource.DEVICE, DataSource.MANUAL, DataSource.CSV, DataSource.WELLBEING]
     return None  # all
+
+
+def _device_day_count(db: Session) -> int:
+    return len(usage_service.list_records(db, limit=2000, sources=[DataSource.DEVICE]))
 
 
 def _daily_frame(
@@ -112,7 +127,7 @@ def _daily_frame(
     set aside instead of appearing to lose a day.
     """
     records = usage_service.list_records(
-        db, limit=2000, sources=_sources_for(scope)
+        db, limit=2000, sources=_sources_for(scope, db)
     )
     frame = pd.DataFrame(
         [
@@ -498,7 +513,7 @@ def risk_confidence(
             "python scripts/train_models.py --only classification"
         )
 
-    records = usage_service.list_records(db, limit=2000, sources=_sources_for(scope))
+    records = usage_service.list_records(db, limit=2000, sources=_sources_for(scope, db))
     frame = pd.DataFrame(
         [
             {

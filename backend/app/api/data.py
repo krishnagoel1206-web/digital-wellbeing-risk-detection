@@ -7,7 +7,7 @@ duplicating the wording in the mobile code.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import Body, APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database.models import DataSource
@@ -188,6 +188,12 @@ def sync_device_days(
       4. Device rows are validated as strictly as typed rows.
     """
     return sync_service.sync_days(db, payload)
+
+
+@router.post("/import-wellbeing", summary="Import daily totals copied from Digital Wellbeing")
+def import_wellbeing(payload: dict = Body(...), db: Session = Depends(get_db)) -> dict:
+    """See data_service.import_wellbeing for the per-date rules."""
+    return data_service.import_wellbeing(db, payload.get("days", []), read_at=payload.get("read_at"))
 
 
 @router.get("/sync-status", summary="What the device has contributed so far")

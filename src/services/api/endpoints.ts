@@ -21,6 +21,8 @@ import type {
   RiskConfidenceResponse,
   RiskScoreResponse,
   SeedDemoResponse,
+  WellbeingDay,
+  WellbeingImportResult,
   UsageRecord,
   UsageRecordInput,
   UsageSummary,
@@ -65,8 +67,10 @@ export const getUsageRecords = (
 
 /** The provenances an AnalysisScope covers, for record queries. */
 export const sourcesForScope = (scope: AnalysisScope): DataSourceName[] | null => {
-  if (scope === 'device') return ['device'];
-  if (scope === 'real') return ['device', 'manual', 'csv'];
+  // Digital Wellbeing imports are shown with the phone's own history: they
+  // describe the same phone, for days the app could not measure itself.
+  if (scope === 'device') return ['device', 'wellbeing'];
+  if (scope === 'real') return ['device', 'manual', 'csv', 'wellbeing'];
   return null;
 };
 
@@ -76,7 +80,14 @@ export const createUsageRecord = (payload: UsageRecordInput) =>
 export const deleteUsageRecord = (id: number) =>
   request<void>(`/api/usage/records/${id}`, { method: 'DELETE' });
 
-export const deleteUsageBySource = (source: 'manual' | 'csv' | 'synthetic') =>
+/** Store daily totals copied from Digital Wellbeing (see data_service.import_wellbeing). */
+export const importWellbeing = (days: WellbeingDay[], readAt?: string) =>
+  request<WellbeingImportResult>('/api/data/import-wellbeing', {
+    method: 'POST',
+    body: { days, read_at: readAt ?? null },
+  });
+
+export const deleteUsageBySource = (source: 'manual' | 'csv' | 'synthetic' | 'wellbeing') =>
   request<{ deleted: number; source: string }>('/api/usage/records', {
     method: 'DELETE',
     query: { source },

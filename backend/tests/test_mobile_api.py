@@ -104,6 +104,7 @@ def test_every_route_the_app_uses_exists():
         "data/feature-dictionary",
         "data/sync",
         "data/sync-status",
+        "data/import-wellbeing",
     }
     assert required <= names, f"missing: {sorted(required - names)}"
 

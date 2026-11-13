@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiStateView } from '@/components/ui/api-states';
+import { WellbeingImportCard } from '@/components/data/wellbeing-import-card';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Section } from '@/components/ui/section';
@@ -156,6 +157,15 @@ export default function DataScreen() {
           </Link>
         </Card>
       ) : null}
+
+      {/* --- one-off import of older days from Digital Wellbeing --- */}
+      <WellbeingImportCard
+        onImported={() => {
+          status.refetch();
+          summary.refetch();
+          records.refetch();
+        }}
+      />
 
       {/* --- sync action --- */}
       {canSync ? (

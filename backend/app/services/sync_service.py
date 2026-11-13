@@ -127,6 +127,11 @@ MISSING_FIELD_REASONS = {
 }
 
 
+#: Days back within which the phone's own reading supersedes an imported
+#: Digital Wellbeing figure. Android keeps detailed events for about a week.
+WELLBEING_YIELD_DAYS = 7
+
+
 def _rejected_fields(day: DeviceDayPayload) -> frozenset[str]:
     """Fields whose null is a VERDICT, not an absence of information.
 
@@ -244,6 +249,32 @@ def sync_days(db: Session, payload: SyncRequest) -> SyncResponse:
                     ),
                 )
             )
+            continue
+
+        # Rule 1b: a Digital Wellbeing import is replaced by a phone
+        # measurement only for a day the phone can still measure properly -
+        # inside Android's ~week of event history. An older device upload can
+        # only be a re-send of a reading taken before the screen-time fix
+        # (which inflated totals), and must not overwrite the imported figure.
+        if existing.source is DataSource.WELLBEING:
+            if day.record_date >= dt.date.today() - dt.timedelta(days=WELLBEING_YIELD_DAYS):
+                for field in DEVICE_FIELDS:
+                    setattr(existing, field, getattr(day, field, None))
+                existing.source = DataSource.DEVICE
+                existing.note = _note_for(day) + "; replaced the Digital Wellbeing import"
+                updated += 1
+                accepted.append(day.record_date)
+            else:
+                skipped.append(
+                    SyncDaySkipped(
+                        record_date=day.record_date,
+                        reason=(
+                            "this day was imported from Digital Wellbeing and is "
+                            "older than the phone can re-measure, so the imported "
+                            "figure is kept."
+                        ),
+                    )
+                )
             continue
 
         replaced_synthetic = existing.source is DataSource.SYNTHETIC

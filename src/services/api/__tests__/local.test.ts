@@ -82,6 +82,7 @@ describe('path translation', () => {
     ['/api/ml/model-performance', 'ml/model-performance'],
     ['/api/usage/summary', 'usage/summary'],
     ['/api/data/sync-status', 'data/sync-status'],
+    ['/api/data/import-wellbeing', 'data/import-wellbeing'],
     ['/api/data/feature-dictionary', 'data/feature-dictionary'],
   ])('maps %s to %s', async (path, endpoint) => {
     respond(200, { ok: true });

@@ -63,7 +63,7 @@ export default function ModelPerformanceScreen() {
                         <View style={styles.baselineRow}>
                           <View style={styles.flex}>
                             <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                              Always guessing the most common answer
+                              Without a model (always picking the most common level)
                             </Text>
                             <Text style={[Typography.heading, { color: theme.textMuted }]}>
                               {formatPercent(data.classification.majority_baseline)}
@@ -207,25 +207,6 @@ export default function ModelPerformanceScreen() {
                       </Card>
                     </Section>
 
-                    <Section title="How it was evaluated">
-                      <Card>
-                        {([
-                          ['Cross-validation', data.classification.cv_strategy],
-                          ['Model choice', data.classification.selection_rule],
-                          ['Where the label comes from', data.classification.target_provenance],
-                          ['Features left out', data.classification.excluded_features.reason],
-                        ] as const).map(([label, value]) => (
-                          <View key={label} style={styles.methodRow}>
-                            <Text style={[Typography.label, { color: theme.textMuted }]}>
-                              {label.toUpperCase()}
-                            </Text>
-                            <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                              {value}
-                            </Text>
-                          </View>
-                        ))}
-                      </Card>
-                    </Section>
                   </>
                 ) : null}
 
@@ -379,6 +360,5 @@ const styles = StyleSheet.create({
   detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
   detailItem: { minWidth: 70, gap: 1 },
   importance: { gap: Spacing.one },
-  methodRow: { gap: Spacing.half, marginBottom: Spacing.three },
   bottomSpacer: { height: BottomTabInset + Spacing.four },
 });

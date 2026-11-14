@@ -249,6 +249,11 @@ export default function HomeScreen() {
                   {formatPercent(score.data.bayesian.credible_interval[0])} and{' '}
                   {formatPercent(score.data.bayesian.credible_interval[1])}
                 </Text>
+                <Text style={[Typography.caption, styles.topGap, { color: theme.textMuted }]}>
+                  A day counts as high when its behaviour index is{' '}
+                  {score.data.elevated_threshold} or more ({score.data.elevated_days} of your{' '}
+                  {score.data.days_scored} days so far). The range is the likely long-run share.
+                </Text>
                 {!score.data.bayesian.is_reliable ? (
                   <Text style={[Typography.caption, styles.topGap, { color: theme.riskMedium }]}>
                     Not enough data yet for this to be reliable.

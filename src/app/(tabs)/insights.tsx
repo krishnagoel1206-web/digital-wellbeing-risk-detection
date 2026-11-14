@@ -510,6 +510,10 @@ export default function InsightsScreen() {
                       {formatPercent(data.bayesian.credible_interval[0])} and{' '}
                       {formatPercent(data.bayesian.credible_interval[1])}
                     </Text>
+                    <Text style={[Typography.caption, { color: theme.textMuted }]}>
+                      A day counts as high when its behaviour index is {data.elevated_threshold}{' '}
+                      or more ({data.elevated_days} of your {data.days_scored} days so far).
+                    </Text>
                     {!data.bayesian.is_reliable ? (
                       <Text style={[Typography.caption, { color: theme.riskMedium }]}>
                         Too few days for this range to mean much yet.

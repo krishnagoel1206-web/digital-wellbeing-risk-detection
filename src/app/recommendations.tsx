@@ -222,44 +222,6 @@ export default function RecommendationsScreen() {
                   </Card>
                 </Section>
 
-                <Section title="What these suggestions can claim">
-                  <Card>
-                    {data.claim_policy ? (
-                      <>
-                        <View style={styles.policyRow}>
-                          <Ionicons name="checkmark-circle" size={14} color={theme.riskLow} />
-                          <Text
-                            style={[
-                              Typography.caption,
-                              styles.flex,
-                              { color: theme.textSecondary },
-                            ]}>
-                            {data.claim_policy.allowed}
-                          </Text>
-                        </View>
-                        <View style={styles.policyRow}>
-                          <Ionicons name="close-circle" size={14} color={theme.riskHigh} />
-                          <Text
-                            style={[
-                              Typography.caption,
-                              styles.flex,
-                              { color: theme.textSecondary },
-                            ]}>
-                            {data.claim_policy.forbidden}
-                          </Text>
-                        </View>
-                      </>
-                    ) : null}
-
-                    {data.caveats.map((caveat) => (
-                      <Text
-                        key={caveat}
-                        style={[Typography.caption, styles.note, { color: theme.textMuted }]}>
-                        {caveat}
-                      </Text>
-                    ))}
-                  </Card>
-                </Section>
               </View>
             )}
           </ApiStateView>
@@ -312,11 +274,5 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   note: { marginTop: Spacing.two, lineHeight: 17 },
-  policyRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.two,
-    marginBottom: Spacing.two,
-  },
   bottomSpacer: { height: BottomTabInset + Spacing.four },
 });

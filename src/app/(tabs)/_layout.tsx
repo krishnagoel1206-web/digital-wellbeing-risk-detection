@@ -20,22 +20,41 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router/tabs';
-import { Platform, StyleSheet, type ColorValue } from 'react-native';
+import { Platform, StyleSheet, View, type ColorValue } from 'react-native';
 
-import { Spacing, Typography } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /** Icon helper: outline when inactive, solid when active, so the active tab
  *  is distinguished by SHAPE as well as colour. */
+function TabIcon({
+  base,
+  color,
+  focused,
+}: {
+  base: string;
+  color: ColorValue;
+  focused: boolean;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.pill, focused && { backgroundColor: theme.primarySubtle }]}>
+      <Ionicons
+        name={(focused ? base : `${base}-outline`) as keyof typeof Ionicons.glyphMap}
+        size={21}
+        color={color as string}
+      />
+    </View>
+  );
+}
+
 function tabIcon(base: string) {
   // `color` is RN's ColorValue, not string - the navigator passes a ColorValue.
-  return ({ color, size, focused }: { color: ColorValue; size: number; focused: boolean }) => (
-    <Ionicons
-      name={(focused ? base : `${base}-outline`) as keyof typeof Ionicons.glyphMap}
-      size={size}
-      color={color as string}
-    />
+  const Icon = ({ color, focused }: { color: ColorValue; size: number; focused: boolean }) => (
+    <TabIcon base={base} color={color} focused={focused} />
   );
+  Icon.displayName = `TabIcon(${base})`;
+  return Icon;
 }
 
 export default function TabsLayout() {
@@ -52,14 +71,18 @@ export default function TabsLayout() {
           borderTopColor: theme.border,
           borderTopWidth: StyleSheet.hairlineWidth,
           // Give Android room for the gesture bar.
-          height: Platform.select({ android: 64, default: 84 }),
-          paddingTop: Spacing.one,
+          height: Platform.select({ android: 70, default: 88 }),
+          paddingTop: Spacing.two,
+          elevation: 0,
           paddingBottom: Platform.select({ android: Spacing.two, default: Spacing.four }),
         },
         tabBarLabelStyle: {
           ...Typography.label,
-          letterSpacing: 0.2,
+          fontSize: 11,
+          fontWeight: '600',
+          letterSpacing: 0.1,
           textTransform: 'none',
+          marginTop: 2,
         },
       }}>
       <Tabs.Screen
@@ -85,3 +108,13 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  pill: {
+    width: 52,
+    height: 30,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

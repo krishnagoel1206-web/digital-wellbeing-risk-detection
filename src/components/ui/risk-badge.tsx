@@ -46,6 +46,8 @@ export function RiskBadge({ level, size = 'md' }: RiskBadgeProps) {
   const colorKeys = RiskColorKeys[level];
 
   const fg = theme[colorKeys.fg];
+  // Amber fill is too light for text; the badge text uses the deeper ink.
+  const ink = level === 'medium' ? theme.riskMediumInk : fg;
   const bg = theme[colorKeys.bg];
 
   const iconSize = size === 'sm' ? 13 : 16;
@@ -62,7 +64,7 @@ export function RiskBadge({ level, size = 'md' }: RiskBadgeProps) {
       accessibilityRole="text"
       accessibilityLabel={meta.label}>
       <Ionicons name={meta.icon} size={iconSize} color={fg} />
-      <Text style={[textStyle, styles.text, { color: fg }]} numberOfLines={1}>
+      <Text style={[textStyle, styles.text, { color: ink, fontWeight: '600' }]} numberOfLines={1}>
         {meta.label}
       </Text>
     </View>

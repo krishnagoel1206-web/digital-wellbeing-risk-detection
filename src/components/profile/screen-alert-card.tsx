@@ -70,7 +70,8 @@ export function ScreenAlertCard() {
         <Switch
           value={state.enabled}
           onValueChange={toggle}
-          trackColor={{ true: theme.primary, false: theme.backgroundSelected }}
+          trackColor={{ true: theme.primary, false: theme.axis }}
+          thumbColor="#FFFFFF"
         />
       </View>
 
@@ -103,7 +104,7 @@ export function ScreenAlertCard() {
       )}
 
       {state.enabled && !state.notificationsAllowed ? (
-        <Text style={[Typography.caption, styles.gapTop, { color: theme.riskMedium }]}>
+        <Text style={[Typography.caption, styles.gapTop, { color: theme.riskMediumInk }]}>
           Notifications are blocked, so warnings cannot appear. Tap below to allow them.
         </Text>
       ) : null}

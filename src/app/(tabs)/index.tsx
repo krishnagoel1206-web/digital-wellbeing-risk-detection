@@ -161,7 +161,7 @@ export default function HomeScreen() {
                 { backgroundColor: theme.riskMediumSurface, borderColor: theme.border },
               ]}>
               <Ionicons name="flask-outline" size={13} color={theme.riskMedium} />
-              <Text style={[Typography.caption, styles.flex, { color: theme.riskMedium }]}>
+              <Text style={[Typography.caption, styles.flex, { color: theme.riskMediumInk }]}>
                 Includes demonstration data
                 {summary.data.records_by_source.synthetic
                   ? ` (${summary.data.records_by_source.synthetic} generated days)`
@@ -260,7 +260,7 @@ export default function HomeScreen() {
                   {score.data.days_scored} days so far). The range is the likely long-run share.
                 </Text>
                 {!score.data.bayesian.is_reliable ? (
-                  <Text style={[Typography.caption, styles.topGap, { color: theme.riskMedium }]}>
+                  <Text style={[Typography.caption, styles.topGap, { color: theme.riskMediumInk }]}>
                     Not enough data yet for this to be reliable.
                   </Text>
                 ) : null}
@@ -394,11 +394,11 @@ const styles = StyleSheet.create({
   root: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
   safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
   content: {
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingHorizontal: Spacing.three + 2,
+    paddingTop: Spacing.four,
     gap: Spacing.four,
   },
-  header: { gap: Spacing.one },
+  header: { gap: Spacing.one + 2, paddingHorizontal: Spacing.one },
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   topGap: { marginTop: Spacing.three },

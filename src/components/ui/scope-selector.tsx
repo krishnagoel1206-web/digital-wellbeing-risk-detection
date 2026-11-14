@@ -33,14 +33,17 @@ export function ScopeSelector() {
               onPress={() => setScope(option.value)}
               style={[
                 styles.segment,
-                selected && { backgroundColor: theme.backgroundElement },
+                selected && [
+                  styles.selected,
+                  { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+                ],
               ]}
               accessibilityRole="button"
               accessibilityState={{ selected }}>
               <Text
                 style={[
                   Typography.caption,
-                  { color: selected ? theme.text : theme.textSecondary },
+                  { color: selected ? theme.text : theme.textMuted, fontWeight: selected ? '600' : '500' },
                 ]}>
                 {option.short}
               </Text>
@@ -79,6 +82,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: Radius.sm,
   },
-  note: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one + 2 },
+  selected: {
+    borderWidth: StyleSheet.hairlineWidth,
+    elevation: 1,
+    shadowColor: '#101828',
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  note: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one + 2, paddingHorizontal: Spacing.half },
   flex: { flex: 1 },
 });

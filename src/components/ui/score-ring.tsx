@@ -35,7 +35,7 @@ export function ScoreRing({
   value,
   level,
   size = 180,
-  thickness = 14,
+  thickness = 12,
   caption = 'Risk score',
 }: ScoreRingProps) {
   const theme = useTheme();

@@ -203,7 +203,7 @@ export default function PermissionsScreen() {
 
               {!row.granted ? (
                 <>
-                  <Text style={[Typography.caption, styles.without, { color: theme.riskMedium }]}>
+                  <Text style={[Typography.caption, styles.without, { color: theme.riskMediumInk }]}>
                     {row.withoutIt}
                   </Text>
                   <Pressable

@@ -246,7 +246,7 @@ export default function ModelPerformanceScreen() {
                         </View>
 
                         {data.regression.sample_size_warning ? (
-                          <Text style={[Typography.caption, styles.note, { color: theme.riskMedium }]}>
+                          <Text style={[Typography.caption, styles.note, { color: theme.riskMediumInk }]}>
                             {data.regression.sample_size_warning}
                           </Text>
                         ) : null}

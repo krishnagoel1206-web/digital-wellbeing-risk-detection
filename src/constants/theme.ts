@@ -42,48 +42,50 @@ import { Platform } from 'react-native';
 export const Colors = {
   light: {
     // --- original template keys (kept for backward compatibility) ---
-    /** Primary ink. Verified 19.68:1 on the card. */
-    text: '#0B0B0B',
-    /** Page plane - the colour behind the cards. */
-    background: '#F7F7F8',
+    /** Primary ink - slate 900. */
+    text: '#0F172A',
+    /** Page plane - a cool off-white behind the cards. */
+    background: '#F5F6F8',
     /** Card / raised element surface. This is also the chart surface. */
     backgroundElement: '#FFFFFF',
     /** A pressed or selected surface. */
-    backgroundSelected: '#ECECEF',
-    /** Secondary ink. Verified 7.94:1. */
-    textSecondary: '#52514E',
+    backgroundSelected: '#EEF0F4',
+    /** Secondary ink - slate 600, 7.6:1 on the card. */
+    textSecondary: '#475467',
 
     // --- added ink ---
-    /** Muted ink for axis ticks and fine print. Verified 5.07:1. */
-    textMuted: '#6E6E73',
+    /** Muted ink for axis ticks and fine print - 4.9:1 on the card. */
+    textMuted: '#667085',
     /** Ink to place on top of a filled primary surface. */
     onPrimary: '#FFFFFF',
 
     // --- structure ---
     /** Hairline ring around cards and inputs. */
-    border: 'rgba(11,11,11,0.10)',
+    border: 'rgba(15,23,42,0.08)',
     /** A more assertive divider. */
-    borderStrong: 'rgba(11,11,11,0.18)',
+    borderStrong: 'rgba(15,23,42,0.16)',
 
     // --- brand / primary action ---
-    primary: '#2A78D6',
-    primaryPressed: '#1C5CAB',
+    primary: '#2563EB',
+    primaryPressed: '#1D4ED8',
     /** Low-chroma primary wash for selected chips and highlights. */
-    primarySubtle: '#EAF2FD',
+    primarySubtle: '#EEF3FF',
 
     // --- RESERVED status colours: risk levels only, never used as a series ---
-    riskLow: '#0CA30C',
-    riskMedium: '#FAB219',
-    riskHigh: '#D03B3B',
+    riskLow: '#12A150',
+    riskMedium: '#F59E0B',
+    riskHigh: '#E5484D',
+    /** Readable text on the medium surface (the fill amber is too light for text). */
+    riskMediumInk: '#B45309',
     /** Tinted backgrounds for risk badges. */
-    riskLowSurface: '#E8F6E8',
-    riskMediumSurface: '#FEF4E0',
-    riskHighSurface: '#FBEAEA',
+    riskLowSurface: '#EAF8F0',
+    riskMediumSurface: '#FFF6E5',
+    riskHighSurface: '#FDEEEE',
 
     // --- categorical series slots (fixed order, never cycled) ---
-    series1: '#2A78D6', // blue
+    series1: '#2563EB', // blue
     series2: '#EB6834', // orange
-    series3: '#1BAF7A', // aqua - needs direct labels in light mode
+    series3: '#14A47A', // aqua - needs direct labels in light mode
     series4: '#EDA100', // yellow - avoid beside series2 in all-pairs charts
     series5: '#E87BA4', // magenta
     series6: '#008300', // green
@@ -91,41 +93,42 @@ export const Colors = {
     series8: '#E34948', // red
 
     // --- chart chrome ---
-    grid: '#E1E0D9',
-    axis: '#C3C2B7',
+    grid: '#EDEFF3',
+    axis: '#D0D5DD',
   },
 
   dark: {
     // --- original template keys ---
-    text: '#F0EFEC',
-    background: '#0B0B0C',
-    backgroundElement: '#17181A',
-    backgroundSelected: '#24262A',
-    textSecondary: '#C3C2B7',
+    text: '#EDEDEF',
+    background: '#0A0A0B',
+    backgroundElement: '#141517',
+    backgroundSelected: '#1F2023',
+    textSecondary: '#A1A1AA',
 
     // --- added ink ---
-    textMuted: '#8E8E93',
+    textMuted: '#8B8B93',
     onPrimary: '#FFFFFF',
 
     // --- structure ---
-    border: 'rgba(255,255,255,0.10)',
-    borderStrong: 'rgba(255,255,255,0.18)',
+    border: 'rgba(255,255,255,0.08)',
+    borderStrong: 'rgba(255,255,255,0.16)',
 
     // --- brand / primary action ---
-    primary: '#3987E5',
-    primaryPressed: '#2A78D6',
-    primarySubtle: '#152335',
+    primary: '#4C8DF6',
+    primaryPressed: '#2563EB',
+    primarySubtle: '#16213A',
 
     // --- RESERVED status colours (same steps; status is never themed) ---
-    riskLow: '#0CA30C',
-    riskMedium: '#FAB219',
-    riskHigh: '#D03B3B',
-    riskLowSurface: '#132413',
-    riskMediumSurface: '#2E2410',
-    riskHighSurface: '#2C1515',
+    riskLow: '#22B865',
+    riskMedium: '#F5A524',
+    riskHigh: '#EF5B5F',
+    riskMediumInk: '#F5B544',
+    riskLowSurface: '#10241A',
+    riskMediumSurface: '#2B2210',
+    riskHighSurface: '#2C1617',
 
     // --- categorical series, stepped for the dark surface (not a flip) ---
-    series1: '#3987E5',
+    series1: '#4C8DF6',
     series2: '#D95926',
     series3: '#199E70',
     series4: '#C98500',
@@ -135,8 +138,8 @@ export const Colors = {
     series8: '#E66767',
 
     // --- chart chrome ---
-    grid: '#2C2C2A',
-    axis: '#383835',
+    grid: '#232428',
+    axis: '#34363B',
   },
 } as const;
 
@@ -227,11 +230,12 @@ export const Elevation = {
     default: { shadowOpacity: 0 },
   }),
   card: Platform.select({
-    android: { elevation: 1 },
+    // A tinted, very soft shadow (honoured on Android 9+), not a grey smudge.
+    android: { elevation: 2, shadowColor: '#101828' },
     default: {
-      shadowColor: '#000000',
-      shadowOpacity: 0.06,
-      shadowRadius: 8,
+      shadowColor: '#101828',
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
       shadowOffset: { width: 0, height: 2 },
     },
   }),
@@ -254,33 +258,33 @@ export const Elevation = {
 export const Typography = {
   /** Hero figure - the risk score on the dashboard. */
   display: {
-    fontSize: 56,
-    lineHeight: 60,
+    fontSize: 52,
+    lineHeight: 58,
     fontWeight: '700' as const,
-    letterSpacing: -1.5,
+    letterSpacing: -1.8,
   },
   title: {
-    fontSize: 32,
-    lineHeight: 38,
+    fontSize: 30,
+    lineHeight: 36,
     fontWeight: '700' as const,
-    letterSpacing: -0.6,
+    letterSpacing: -0.9,
   },
   heading: {
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '600' as const,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
-  subheading: { fontSize: 17, lineHeight: 24, fontWeight: '600' as const },
+  subheading: { fontSize: 17, lineHeight: 24, fontWeight: '600' as const, letterSpacing: -0.2 },
   body: { fontSize: 15, lineHeight: 22, fontWeight: '400' as const },
-  bodyStrong: { fontSize: 15, lineHeight: 22, fontWeight: '600' as const },
-  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' as const },
+  bodyStrong: { fontSize: 15, lineHeight: 22, fontWeight: '600' as const, letterSpacing: -0.1 },
+  caption: { fontSize: 13, lineHeight: 19, fontWeight: '400' as const },
   /** Small all-caps section label. */
   label: {
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: '700' as const,
-    letterSpacing: 0.8,
+    fontWeight: '600' as const,
+    letterSpacing: 0.7,
   },
   /** Axis ticks and any vertically-aligned numbers. */
   tabular: {

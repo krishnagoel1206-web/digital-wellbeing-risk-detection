@@ -84,14 +84,15 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
   },
   content: {
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingHorizontal: Spacing.three + 2,
+    paddingTop: Spacing.four,
   },
   flex: {
     flex: 1,
   },
   header: {
-    gap: Spacing.one,
+    gap: Spacing.one + 2,
+    paddingHorizontal: Spacing.one,
   },
   bottomSpacer: {
     height: BottomTabInset + Spacing.four,

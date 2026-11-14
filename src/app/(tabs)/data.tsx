@@ -241,7 +241,7 @@ export default function DataScreen() {
                     Typography.heading,
                     {
                       color:
-                        captureState.pendingUpload > 0 ? theme.riskMedium : theme.textMuted,
+                        captureState.pendingUpload > 0 ? theme.riskMediumInk : theme.textMuted,
                     },
                   ]}>
                   {captureState.pendingUpload}

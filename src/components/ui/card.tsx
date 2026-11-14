@@ -44,11 +44,11 @@ export function Card({ children, variant = 'raised', noPadding = false, style }:
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg + 2,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
   padded: {
-    padding: Spacing.three,
+    padding: Spacing.three + 2,
   },
 });

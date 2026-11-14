@@ -20,7 +20,7 @@ export function SeverityTag({ severity }: { severity: AnomalySeverity }) {
     severity === 'severe'
       ? { fg: theme.riskHigh, bg: theme.riskHighSurface, icon: 'warning' as const }
       : severity === 'moderate'
-        ? { fg: theme.text, bg: theme.riskMediumSurface, icon: 'alert-circle' as const }
+        ? { fg: theme.riskMediumInk, bg: theme.riskMediumSurface, icon: 'alert-circle' as const }
         : { fg: theme.textSecondary, bg: theme.backgroundSelected, icon: 'ellipse-outline' as const };
   return (
     <View

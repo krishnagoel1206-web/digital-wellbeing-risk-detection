@@ -92,10 +92,10 @@ const styles = StyleSheet.create({
   },
   label: { flex: 1 },
   track: {
-    height: 8,
+    height: 6,
     borderRadius: Radius.pill,
     overflow: 'hidden',
   },
   // 4px rounded end on the data mark, anchored to the baseline.
-  fill: { height: 8, borderRadius: Radius.pill },
+  fill: { height: 6, borderRadius: Radius.pill },
 });

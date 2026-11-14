@@ -49,7 +49,7 @@ export function StatTile({
 
   return (
     <View style={styles.wrap}>
-      <Text style={[Typography.caption, { color: theme.textSecondary }]} numberOfLines={1}>
+      <Text style={[Typography.caption, { color: theme.textMuted, fontWeight: '500' }]} numberOfLines={1}>
         {label}
       </Text>
 
@@ -80,7 +80,7 @@ export function StatTile({
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: Spacing.half,
+    gap: Spacing.one,
     // flex:1 + minWidth:0 makes tiles share a row as equal columns and lets
     // long values truncate instead of pushing their neighbour off screen.
     flex: 1,

@@ -377,11 +377,11 @@ const styles = StyleSheet.create({
   root: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
   safeArea: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
   content: {
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingHorizontal: Spacing.three + 2,
+    paddingTop: Spacing.four,
     gap: Spacing.four,
   },
-  header: { gap: Spacing.one },
+  header: { gap: Spacing.one + 2, paddingHorizontal: Spacing.one },
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   rowBetween: {

@@ -165,7 +165,7 @@ export function LineChart({
           {showArea ? (
             <Defs>
               <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={color} stopOpacity={0.28} />
+                <Stop offset="0" stopColor={color} stopOpacity={0.2} />
                 <Stop offset="1" stopColor={color} stopOpacity={0} />
               </LinearGradient>
             </Defs>
@@ -183,6 +183,7 @@ export function LineChart({
                 y2={y}
                 stroke={gridColor}
                 strokeWidth={1}
+                strokeDasharray={i === gridLines - 1 ? undefined : '3 4'}
               />
             );
           })}
@@ -193,7 +194,7 @@ export function LineChart({
             d={linePath}
             fill="none"
             stroke={color}
-            strokeWidth={2.5}
+            strokeWidth={2.25}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -204,10 +205,10 @@ export function LineChart({
                   key={`dot-${i}`}
                   cx={p.x}
                   cy={p.y}
-                  r={3.5}
+                  r={3.25}
                   fill={color}
-                  stroke="#FFFFFF"
-                  strokeWidth={1.5}
+                  stroke={theme.backgroundElement}
+                  strokeWidth={1.75}
                 />
               ))
             : null}
@@ -266,9 +267,14 @@ const styles = StyleSheet.create({
     width: TOOLTIP_W,
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.two,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#101828',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
 });
 

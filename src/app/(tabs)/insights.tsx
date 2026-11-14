@@ -357,12 +357,6 @@ export default function InsightsScreen() {
                       </View>
                     ) : null}
                   </View>
-
-                  {data.caveats
-                    .filter((c): c is string => Boolean(c))
-                    .map((caveat) => (
-                      <Caveat key={caveat}>{caveat}</Caveat>
-                    ))}
                 </Card>
               )}
             </ApiStateView>

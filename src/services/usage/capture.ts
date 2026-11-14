@@ -35,7 +35,7 @@ import { ApiError, request } from '@/services/api/client';
 import { toPayload, type SyncResponse } from './device-sync';
 
 /** How many days back each capture pass reads. */
-const CAPTURE_WINDOW_DAYS = 7;
+const CAPTURE_WINDOW_DAYS = 10;
 
 /**
  * Days read per capture, against Android's ~7-day retention.

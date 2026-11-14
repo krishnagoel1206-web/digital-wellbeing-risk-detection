@@ -708,11 +708,13 @@ class UsageStatsModule : Module() {
       val usable =
         notificationAccess && NotificationCounterService.isDateUsable(context, date, zone)
 
-      // A day counts from events only if Android still holds the WHOLE of
-      // it: the oldest retained event must predate the day's start.
+      // A day counts from events only if Android still holds (practically)
+      // the whole of it. Retention files start at a day boundary, so history
+      // beginning a few seconds after midnight still covers that day; the
+      // tolerance matches the listener's MAX_UNOBSERVED_MINUTES.
       val dayStartMs = date.atStartOfDay(zone).toInstant().toEpochMilli()
       val eventsCoverDay = notificationEvents.visible &&
-        (notificationEvents.earliestEventMs ?: Long.MAX_VALUE) < dayStartMs
+        (notificationEvents.earliestEventMs ?: Long.MAX_VALUE) <= dayStartMs + 15L * 60_000
 
       val notificationCount: Int? = when {
         eventsCoverDay -> notificationEvents.counts[key] ?: 0

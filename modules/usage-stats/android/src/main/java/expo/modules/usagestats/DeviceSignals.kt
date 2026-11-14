@@ -38,6 +38,7 @@ object DeviceSignals {
   /** Event type constants, compared numerically for cross-version safety. */
   private const val EVENT_SCREEN_INTERACTIVE = 15
   private const val EVENT_KEYGUARD_HIDDEN = 18
+  private const val EVENT_NOTIFICATION_INTERRUPTION = 12
 
   /**
    * Bounds within which an inactivity gap is accepted as sleep.
@@ -93,6 +94,58 @@ object DeviceSignals {
     } else {
       screenOn to "SCREEN_INTERACTIVE (fallback: counts screen wakes, not only unlocks)"
     }
+  }
+
+  // -----------------------------------------------------------------------
+  // Notifications - the way Digital Wellbeing counts them
+  // -----------------------------------------------------------------------
+
+  /**
+   * Notifications per day from Android's own NOTIFICATION_INTERRUPTION usage
+   * events - one per notification that actually alerted the user. This is
+   * the figure Digital Wellbeing shows as "notifications received".
+   *
+   * WHY NOT THE LISTENER
+   * The notification listener sees every POST, and apps re-post the same
+   * notification each time its content changes (a chat app updates one
+   * notification per new message; progress and status notifications update
+   * constantly). Measured on 14 Nov up to 16:46: listener 746, interruption
+   * events 352, Digital Wellbeing ~336.
+   *
+   * [earliestEventMs] is the oldest event Android still holds, so callers can
+   * tell a day Android has already forgotten (unknown) from a quiet day (0).
+   * [visible] is false if this device withholds these events from apps.
+   */
+  data class NotificationEvents(
+    val counts: Map<String, Int>,
+    val earliestEventMs: Long?,
+    val visible: Boolean,
+  )
+
+  fun notificationsByDate(
+    manager: UsageStatsManager,
+    startMs: Long,
+    endMs: Long,
+    zone: ZoneId
+  ): NotificationEvents {
+    val counts = mutableMapOf<String, Int>()
+    var earliest: Long? = null
+    var seenAny = false
+    // Look back two extra days only to learn where Android's retention starts.
+    val events = manager.queryEvents(startMs - 2L * 24 * 60 * 60 * 1000, endMs)
+    val event = UsageEvents.Event()
+    while (events.hasNextEvent()) {
+      events.getNextEvent(event)
+      if (earliest == null || event.timeStamp < earliest) earliest = event.timeStamp
+      if (event.eventType != EVENT_NOTIFICATION_INTERRUPTION) continue
+      seenAny = true
+      if (event.timeStamp < startMs) continue
+      val date = LocalDateTime.ofInstant(Instant.ofEpochMilli(event.timeStamp), zone)
+        .toLocalDate()
+        .toString()
+      counts[date] = (counts[date] ?: 0) + 1
+    }
+    return NotificationEvents(counts, earliest, seenAny)
   }
 
   // -----------------------------------------------------------------------

@@ -636,6 +636,15 @@ class UsageStatsModule : Module() {
     val notificationCounts =
       if (notificationAccess) NotificationCounterService.countsByDate(context) else emptyMap()
     val observingSince = NotificationCounterService.observingSince(context)
+    // Preferred source: Android's interruption events (what Digital Wellbeing
+    // counts). The listener tally is only a fallback for devices that hide them.
+    val notificationEvents =
+      DeviceSignals.notificationsByDate(usageStatsManager(), startMs, endMs, zone)
+    android.util.Log.i(
+      "UsageStats",
+      "notification events visible=${notificationEvents.visible} " +
+        "earliest=${notificationEvents.earliestEventMs} days=${notificationEvents.counts}"
+    )
 
     // Session boundaries feed the sleep estimate. ANY use of the phone -
     // including the home screen - means the person was awake, so only this
@@ -699,7 +708,17 @@ class UsageStatsModule : Module() {
       val usable =
         notificationAccess && NotificationCounterService.isDateUsable(context, date, zone)
 
+      // A day counts from events only if Android still holds the WHOLE of
+      // it: the oldest retained event must predate the day's start.
+      val dayStartMs = date.atStartOfDay(zone).toInstant().toEpochMilli()
+      val eventsCoverDay = notificationEvents.visible &&
+        (notificationEvents.earliestEventMs ?: Long.MAX_VALUE) < dayStartMs
+
       val notificationCount: Int? = when {
+        eventsCoverDay -> notificationEvents.counts[key] ?: 0
+        // Events visible but this day already forgotten: unknown, and not
+        // filled from the listener, whose count means something else.
+        notificationEvents.visible -> null
         !notificationAccess -> null
         !usable -> null
         else -> notificationCounts[key] ?: 0
@@ -723,7 +742,7 @@ class UsageStatsModule : Module() {
           // same rule independently rather than trusting the client. Both
           // numbers travel, not just a verdict, so the rule stays auditable
           // and a disagreement is visible instead of silent.
-          "notificationObservedMinutes" to msToMinutes(observedMs),
+          "notificationObservedMinutes" to msToMinutes(if (eventsCoverDay) observableMs else observedMs),
           "notificationDayMinutes" to msToMinutes(observableMs),
           // Sleep is an ESTIMATE from inactivity, never a measurement.
           "sleepHours" to sleep?.hours,
@@ -750,6 +769,9 @@ class UsageStatsModule : Module() {
         "unlockSignal" to unlockSignal,
         "callLog" to callLogGranted,
         "notificationAccess" to notificationAccess,
+        "notificationSource" to
+          if (notificationEvents.visible) "NOTIFICATION_INTERRUPTION events (as Digital Wellbeing)"
+          else "notification listener",
         "notificationObservingSinceMs" to observingSince?.toDouble(),
         // Every observation window, so the app can show WHY a particular day
         // has no count - and so a gap is a visible fact rather than an

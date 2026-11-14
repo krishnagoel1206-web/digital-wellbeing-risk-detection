@@ -56,7 +56,7 @@ data class DayFacts(
  *   2  activity-keyed sessions closed by their own PAUSED/STOPPED,
  *      non-overlapping, launcher and system UI excluded (5h 48m).
  */
-const val CURRENT_CALC_VERSION = 2
+const val CURRENT_CALC_VERSION = 3
 
 /** What storing a day did. */
 enum class PutResult {

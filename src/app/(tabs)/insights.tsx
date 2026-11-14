@@ -47,7 +47,7 @@ import { useApi } from '@/hooks/use-api';
 import { useScope } from '@/hooks/use-scope';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/services/api/endpoints';
-import { formatMinutes, formatPercent, riskLevelKey } from '@/utils/format';
+import { formatMinutes, formatPercent, formatShortDate, riskLevelKey } from '@/utils/format';
 
 /** Muted aside used for caveats, so they read as context not findings. */
 function Caveat({ children }: { children: string }) {
@@ -335,6 +335,29 @@ export default function InsightsScreen() {
                       {formatMinutes(data.accuracy.naive_baseline_rmse)} for simply guessing
                       today&apos;s figure
                     </Text>
+                    {data.personal ? (
+                      <View style={styles.personal}>
+                        <Text style={[Typography.caption, { color: theme.text }]}>
+                          {`Trained on this phone from your ${data.personal.days_used} real days (${formatShortDate(
+                            data.personal.first_date
+                          )} – ${formatShortDate(data.personal.last_date)}). Each option below was tested by forecasting 7 days from points in your past:`}
+                        </Text>
+                        {data.personal.candidates.map((c) => (
+                          <View key={c.name} style={styles.rowBetween}>
+                            <Text
+                              style={[
+                                Typography.caption,
+                                { color: c.name === data.personal?.chosen ? theme.text : theme.textSecondary },
+                              ]}>
+                              {`${c.name === data.personal?.chosen ? '✓ ' : '   '}${c.name}${c.kind === 'baseline' ? ' (simple rule)' : ''}`}
+                            </Text>
+                            <Text style={[Typography.tabular, { color: theme.textSecondary }]}>
+                              {`±${formatMinutes(c.rmse_minutes)}`}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
 
                   {data.caveats
@@ -540,6 +563,7 @@ const styles = StyleSheet.create({
   header: { gap: Spacing.one },
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  personal: { gap: 4, marginTop: Spacing.two },
   rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',

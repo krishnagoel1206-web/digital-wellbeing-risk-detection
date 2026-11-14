@@ -236,6 +236,21 @@ export type ForecastResponse = {
     fitted_on: 'real' | 'mixed' | 'synthetic' | 'unknown';
     note: string;
   } | null;
+  /**
+   * Present when the forecast came from the model trained ON THE PHONE from
+   * your real days. `candidates` are every model and simple rule it compared,
+   * best first, by their error on 7-day forecasts of your own past.
+   */
+  personal?: {
+    chosen: string;
+    chosen_kind: 'model' | 'baseline';
+    days_used: number;
+    rows: number;
+    first_date: string;
+    last_date: string;
+    stable: boolean;
+    candidates: { name: string; kind: 'model' | 'baseline'; rmse_minutes: number; mae_minutes: number }[];
+  };
   /** How far the measured history is from supporting a personally-fitted model. */
   personal_model: {
     measured_days: number;

@@ -44,6 +44,7 @@ from app.ml.classification import inference as clf_inference
 from app.ml.clustering import inference as cluster_inference
 from app.ml.preprocessing.feature_engineering import build_personal_features
 from app.ml.regression import inference as reg_inference
+from app.ml.regression import personal as personal_fc
 from app.ml.regression.train_forecast import drop_incomplete_today
 from app.ml.recommendations import inference as rec_inference
 from app.ml.risk_scoring import inference as score_inference
@@ -223,18 +224,32 @@ def model_performance() -> dict:
     }
 
 
-def _personal_model_readiness(
-    db: Session,
-) -> dict:
-    """How far the measured history is from supporting a personal forecaster.
+def _real_frame_with_sources(db: Session) -> pd.DataFrame:
+    """Every non-demo day with its source, today excluded - the history the
+    personal forecaster learns from."""
+    records = usage_service.list_records(db, limit=2000, sources=_sources_for("real"))
+    frame = pd.DataFrame(
+        [
+            {
+                "record_date": r.record_date,
+                "total_screen_minutes": r.total_screen_minutes,
+                "source": r.source.value,
+            }
+            for r in records
+        ]
+    )
+    if frame.empty:
+        return frame
+    frame, _ = drop_incomplete_today(frame)
+    return frame
 
-    Answers the question the provenance caveat provokes: "then when WILL it be
-    about me?". Given in days the user can count, derived from the training
-    module's own thresholds so the two cannot drift apart.
 
-    The arithmetic: the model needs MIN_ROWS_TO_TRAIN supervised rows, and the
-    first 7 days of any history are consumed building the 7-day lag, so the
-    requirement in calendar days is that sum.
+def _personal_model_readiness(db: Session) -> dict:
+    """How far the real history is from supporting the on-phone forecaster.
+
+    Counts the latest run of CONSECUTIVE real days (phone-measured, Digital
+    Wellbeing imports, or entered by the user - never demo data), because the
+    lag features need unbroken days.
     """
     from app.ml.regression.train_forecast import (
         LAG_WARMUP_DAYS,
@@ -242,27 +257,24 @@ def _personal_model_readiness(
         MIN_ROWS_TO_TRAIN,
     )
 
-    device_days = len(
-        usage_service.list_records(db, limit=2000, sources=[DataSource.DEVICE])
-    )
+    real = _real_frame_with_sources(db)
+    run_days = len(personal_fc.latest_consecutive_run(real)) if not real.empty else 0
     needed = MIN_ROWS_TO_TRAIN + LAG_WARMUP_DAYS
     comfortable = MIN_ROWS_FOR_CONFIDENCE + LAG_WARMUP_DAYS
 
     return {
-        "measured_days": device_days,
+        "measured_days": run_days,
         "days_needed_to_train": needed,
         "days_needed_for_stable_metrics": comfortable,
-        "can_train_on_your_data": device_days >= needed,
+        "can_train_on_your_data": run_days >= needed,
         "explanation": (
-            f"A forecaster fitted on your own days needs {needed} consecutive "
-            f"measured days ({MIN_ROWS_TO_TRAIN} usable rows plus "
-            f"{LAG_WARMUP_DAYS} consumed by the 7-day lag). You have "
-            f"{device_days}."
-            if device_days < needed
+            f"A forecaster trained on your own days needs {needed} days in a row "
+            f"({MIN_ROWS_TO_TRAIN} usable plus {LAG_WARMUP_DAYS} used to build "
+            f"the 7-day lag). You have {run_days}. It switches over by itself."
+            if run_days < needed
             else (
-                f"You have {device_days} measured days, enough to fit the "
-                "forecaster on your own history. Run: python "
-                "scripts/train_models.py --only regression --sources device"
+                f"Trained on this phone from your last {run_days} real days, and "
+                "retrained every time you open the forecast."
             )
         ),
     }
@@ -305,7 +317,19 @@ def forecast(
     horizon: int = 7,
     scope: AnalysisScope = "all",
 ) -> dict:
-    """Forecast upcoming daily screen time."""
+    """Forecast upcoming daily screen time.
+
+    For the "device" and "real" scopes the forecast comes from a model
+    trained ON THE PHONE from the user's real days (see
+    app/ml/regression/personal.py), whenever there are enough consecutive
+    days. Only below that - or under the demo-inclusive "all" scope - is the
+    shipped, laptop-trained model used, and it is labelled as such.
+    """
+    if scope in ("device", "real"):
+        personal = _personal_forecast(db, horizon)
+        if personal is not None:
+            return personal
+
     if not reg_inference.is_trained():
         raise NotReady((
                 "The forecasting model is not trained. Run: "
@@ -377,6 +401,98 @@ def forecast(
     }
 
 
+def _personal_forecast(db: Session, horizon: int) -> dict | None:
+    """The forecast from the on-phone personal model, or None if the real
+    history is still too short (the caller then falls back)."""
+    real = _real_frame_with_sources(db)
+    if real.empty:
+        return None
+    try:
+        model = personal_fc.fit(real)
+    except personal_fc.NotEnoughPersonalHistory:
+        return None
+
+    history = real[["record_date", "total_screen_minutes"]]
+    predictions = reg_inference.forecast_next_days(history, horizon=horizon, predictor=model.predict)
+    if not predictions:
+        return None
+
+    used = real[
+        (pd.to_datetime(real["record_date"]) >= pd.Timestamp(model.first_date))
+        & (pd.to_datetime(real["record_date"]) <= pd.Timestamp(model.last_date))
+    ]
+    by_source = used["source"].value_counts().to_dict()
+    sources_text = ", ".join(
+        f"{n} {'measured by this phone' if s == 'device' else 'from Digital Wellbeing' if s == 'wellbeing' else 'entered by you'}"
+        for s, n in by_source.items()
+    )
+    chose_baseline = model.kind == "baseline"
+
+    return {
+        "model": model.name,
+        "horizon": len(predictions),
+        "week_comparison": _week_comparison(history, predictions, model.rmse),
+        "predictions": [
+            {
+                "date": p.date,
+                "predicted_minutes": p.predicted_minutes,
+                "predicted_hours": round(p.predicted_minutes / 60.0, 2),
+                "is_recursive": p.is_recursive,
+                "is_current_day": p.is_current_day,
+            }
+            for p in predictions
+        ],
+        "accuracy": {
+            "rmse_minutes": round(model.rmse, 1),
+            "cv_strategy": (
+                f"walk-forward on your own days: {model.n_splits} start dates, "
+                "each forecasting up to 7 days ahead"
+            ),
+            "naive_baseline_rmse": round(model.naive_rmse, 1),
+        },
+        "training_data": {
+            "rows_by_source": by_source,
+            "contains_synthetic": False,
+            "fitted_on": "real",
+            "note": f"Trained on this phone from your {model.days_used} real days "
+            f"({model.first_date} to {model.last_date}): {sources_text}.",
+        },
+        "personal_model": _personal_model_readiness(db),
+        "personal": {
+            "chosen": model.name,
+            "chosen_kind": model.kind,
+            "days_used": model.days_used,
+            "rows": model.rows,
+            "first_date": model.first_date,
+            "last_date": model.last_date,
+            "stable": personal_fc.is_stable(model),
+            "candidates": [
+                {"name": c.name, "kind": c.kind, "rmse_minutes": round(c.rmse, 1), "mae_minutes": round(c.mae, 1)}
+                for c in model.candidates
+            ],
+        },
+        "caveats": [
+            "Only the first day rests purely on observed history. Later days "
+            "use earlier predictions as input, so their error compounds - "
+            "these are marked is_recursive.",
+            (
+                f"On your days, the simple rule '{model.name}' predicted better "
+                "than any trained model, so it is the one used. A trained model "
+                "takes over automatically once it beats it."
+                if chose_baseline
+                else f"{model.name} was chosen because it had the lowest error on "
+                "your own days, ahead of the other models and the simple rules."
+            ),
+            (
+                None
+                if personal_fc.is_stable(model)
+                else f"Accuracy is measured on {model.rows} days, so treat the "
+                "error figure as approximate; it firms up as days accumulate."
+            ),
+        ],
+    }
+
+
 def _week_comparison(daily: pd.DataFrame, predictions: list, rmse: float | None) -> dict | None:
     """The week ahead against the last complete week, per day.
 
@@ -425,6 +541,23 @@ def actual_vs_predicted(
     if not reg_inference.is_trained():
         raise NotReady("The forecasting model is not trained.",
         )
+
+    if scope in ("device", "real"):
+        real = _real_frame_with_sources(db)
+        try:
+            model = personal_fc.fit(real) if not real.empty else None
+        except personal_fc.NotEnoughPersonalHistory:
+            model = None
+        if model is not None:
+            return {
+                "series": model.out_of_fold,
+                "n_points": len(model.out_of_fold),
+                "note": (
+                    f"Each prediction was made by '{model.name}' trained only on "
+                    "the days BEFORE it (walk-forward), so these are honest "
+                    "out-of-sample errors on your own days."
+                ),
+            }
 
     daily = _daily_frame(db, scope)
     if daily.empty:

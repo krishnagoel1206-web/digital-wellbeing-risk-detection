@@ -12,7 +12,7 @@ import datetime as dt
 import json
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any
+from typing import Callable, Any
 
 import joblib
 import numpy as np
@@ -91,7 +91,12 @@ def load_metrics() -> dict | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def forecast_next_days(daily: pd.DataFrame, *, horizon: int = 7) -> list[Forecast]:
+def forecast_next_days(
+    daily: pd.DataFrame,
+    *,
+    horizon: int = 7,
+    predictor: Callable[[np.ndarray], float] | None = None,
+) -> list[Forecast]:
     """Forecast the next `horizon` days of screen time.
 
     Only the FIRST predicted day rests purely on observed history. Each
@@ -99,8 +104,14 @@ def forecast_next_days(daily: pd.DataFrame, *, horizon: int = 7) -> list[Forecas
     compound - every such day is flagged `is_recursive=True` so the app can
     present later days with appropriate caution rather than equal confidence.
     """
-    artifact = _load_artifact()
-    pipeline = artifact["pipeline"]
+    # `predictor` maps one feature row to minutes. Without one, the shipped
+    # population-fitted artifact is used; the personal forecaster (fitted on
+    # the phone from the user's real days) passes its own.
+    if predictor is None:
+        pipeline = _load_artifact()["pipeline"]
+
+        def predictor(row: np.ndarray) -> float:
+            return float(pipeline.predict(row.reshape(1, -1))[0])
 
     if daily.empty:
         return []
@@ -160,7 +171,7 @@ def forecast_next_days(daily: pd.DataFrame, *, horizon: int = 7) -> list[Forecas
             # impute, because an imputed lag would be an invented observation.
             break
 
-        predicted = float(pipeline.predict(features)[0])
+        predicted = float(predictor(features[0]))
         # Screen time cannot be negative or exceed a day.
         predicted = max(0.0, min(1440.0, predicted))
 

@@ -220,7 +220,7 @@ export default function ModelPerformanceScreen() {
                         <View style={styles.baselineRow}>
                           <View style={styles.flex}>
                             <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                              Guessing today&apos;s figure for tomorrow
+                              Without a model (tomorrow = same as today)
                             </Text>
                             <Text style={[Typography.heading, { color: theme.textMuted }]}>
                               {formatMinutes(data.regression.naive_persistence_rmse)}

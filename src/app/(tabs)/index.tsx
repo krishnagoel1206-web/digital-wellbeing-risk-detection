@@ -24,7 +24,6 @@ import { useCallback } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LineChart } from '@/components/charts/line-chart';
 import { ApiStateView } from '@/components/ui/api-states';
 import { Card } from '@/components/ui/card';
 import { RiskBadge } from '@/components/ui/risk-badge';
@@ -45,8 +44,8 @@ import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/services/api/endpoints';
 import { formatCount, formatMinutes, formatPercent, percentChange, riskLevelKey } from '@/utils/format';
 
-/** How many recent days the trend chart shows. */
-const TREND_DAYS = 14;
+/** Latest day plus the one before it, for the change arrows. */
+const RECENT_DAYS = 2;
 
 function NavRow({
   href,
@@ -97,7 +96,7 @@ export default function HomeScreen() {
   );
   const records = useApi(
     useCallback(
-      () => api.getUsageRecords(api.sourcesForScope(scope), { limit: TREND_DAYS }),
+      () => api.getUsageRecords(api.sourcesForScope(scope), { limit: RECENT_DAYS }),
       [scope]
     ),
     [scope]
@@ -119,9 +118,6 @@ export default function HomeScreen() {
   const isRefreshing =
     summary.isRefreshing || risk.isRefreshing || records.isRefreshing;
 
-  // Records arrive newest-first; reverse for a left-to-right time axis.
-  const trend = records.data ? [...records.data].reverse() : [];
-  const trendValues = trend.map((r) => r.total_screen_minutes / 60);
 
   const latest = records.data?.[0] ?? null;
   const previous = records.data?.[1] ?? null;
@@ -316,42 +312,6 @@ export default function HomeScreen() {
             </ApiStateView>
           </Section>
 
-          {/* --- Trend --- */}
-          <Section title={`Last ${TREND_DAYS} days`} subtitle="Daily screen time in hours">
-            <ApiStateView state={records} loadingLabel="Loading trend">
-              {(data) =>
-                data.length < 2 ? (
-                  <Card>
-                    <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                      At least two days are needed to draw a trend.
-                    </Text>
-                  </Card>
-                ) : (
-                  <Card>
-                    <LineChart
-                      data={trendValues}
-                      height={170}
-                      color={theme.series1}
-                      gridColor={theme.grid}
-                      showArea
-                      showDots
-                      startAtZero
-                      gradientId="homeTrend"
-                    />
-                    <View style={styles.axisRow}>
-                      <Text style={[Typography.tabular, { color: theme.textMuted }]}>
-                        {trend[0]?.record_date.slice(5)}
-                      </Text>
-                      <Text style={[Typography.tabular, { color: theme.textMuted }]}>
-                        {trend[trend.length - 1]?.record_date.slice(5)}
-                      </Text>
-                    </View>
-                  </Card>
-                )
-              }
-            </ApiStateView>
-          </Section>
-
           {/* --- Anomaly alerts --- */}
           <Section title="Unusual days" subtitle="Compared with your own normal">
             <ApiStateView
@@ -458,11 +418,6 @@ const styles = StyleSheet.create({
   },
   probFill: { height: 4, borderRadius: Radius.pill },
   tileGrid: { flexDirection: 'row', gap: Spacing.three },
-  axisRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: Spacing.one,
-  },
   anomalyRow: {
     paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.three,

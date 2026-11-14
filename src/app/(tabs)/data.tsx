@@ -1,5 +1,5 @@
 /**
- * Usage Data screen (Screen 3) - device sync, no manual entry.
+ * Usage Data screen (Screen 3) - captured automatically; no Sync button, no manual entry.
  *
  * Reads the same usage statistics Android records for Digital Wellbeing and
  * pushes them to the backend. There is deliberately no form here: the data is
@@ -26,8 +26,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as UsageStats from '@modules/usage-stats';
 import { Link } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { LineChart } from '@/components/charts/line-chart';
 import { ApiStateView } from '@/components/ui/api-states';
 import { WellbeingImportCard } from '@/components/data/wellbeing-import-card';
 import { Card } from '@/components/ui/card';
@@ -35,28 +36,26 @@ import { Screen } from '@/components/ui/screen';
 import { Section } from '@/components/ui/section';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
+import { useScope } from '@/hooks/use-scope';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/services/api/endpoints';
 import {
   ensureBackgroundCapture,
   type BackgroundCaptureState,
 } from '@/services/usage/background-capture';
-import { captureAndFlush, type CaptureAndFlushResult } from '@/services/usage/capture';
-import {
-  DEFAULT_SYNC_DAYS,
-  getSyncStatus,
-} from '@/services/usage/device-sync';
+import { getSyncStatus } from '@/services/usage/device-sync';
+import { captureIfDue } from '@/services/usage/foreground-capture';
 import { formatMinutes } from '@/utils/format';
+
+/** How many recent days the trend chart shows. */
+const TREND_DAYS = 14;
 
 export default function DataScreen() {
   const theme = useTheme();
 
   const [permissions, setPermissions] = useState(() => UsageStats.getPermissionState());
-  const [syncing, setSyncing] = useState(false);
-  const [capture, setCapture] = useState<CaptureAndFlushResult | null>(null);
   const [captureState, setCaptureState] = useState(() => UsageStats.getCaptureStatus());
   const [background, setBackground] = useState<BackgroundCaptureState | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
   const appState = useRef(AppState.currentState);
 
   const status = useApi(useCallback(() => getSyncStatus(), []));
@@ -65,6 +64,15 @@ export default function DataScreen() {
   // what is stored, including demonstration rows, each labelled with its
   // source - unlike the charts, which must show only the user's own days.
   const records = useApi(useCallback(() => api.getUsageRecords(null, { limit: 10 }), []));
+  // The chart shows only the user's own days, like every other chart.
+  const { scope } = useScope();
+  const trendRecords = useApi(
+    useCallback(
+      () => api.getUsageRecords(api.sourcesForScope(scope), { limit: TREND_DAYS }),
+      [scope]
+    ),
+    [scope]
+  );
 
   // Permissions are granted in Android settings, so re-check on foreground.
   useEffect(() => {
@@ -89,29 +97,24 @@ export default function DataScreen() {
     return () => subscription.remove();
   }, []);
 
-  const runSync = useCallback(async () => {
-    setSyncing(true);
-    setSyncError(null);
-    try {
-      // captureAndFlush, not the old read-and-POST. The read is the half with
-      // a deadline - Android forgets the day after about a week - so it is
-      // stored locally first and the upload becomes a retryable second step.
-      // Previously an unreachable laptop threw the read away entirely.
-      const result = await captureAndFlush();
-      setCapture(result);
-
-      if (result.uploaded > 0 || result.stillPending === 0) {
-        status.refetch();
-        summary.refetch();
-        records.refetch();
-      }
+  // Capture runs by itself (app open, return to foreground, background
+  // task). Opening this screen nudges one more pass, then refreshes the
+  // figures so they include anything it just stored.
+  useEffect(() => {
+    let cancelled = false;
+    captureIfDue('data-screen').finally(() => {
+      if (cancelled) return;
       setCaptureState(UsageStats.getCaptureStatus());
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSyncing(false);
-    }
-  }, [status, summary, records]);
+      status.refetch();
+      summary.refetch();
+      records.refetch();
+      trendRecords.refetch();
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const canSync = permissions.moduleAvailable && permissions.usageAccess;
 
@@ -167,41 +170,14 @@ export default function DataScreen() {
         }}
       />
 
-      {/* --- sync action --- */}
+      {/* --- what gets captured (automatically, on open and in the background) --- */}
       {canSync ? (
-        <Section title="Sync" subtitle={`Reads the last ${DEFAULT_SYNC_DAYS} days`}>
+        <Section
+          title="What is captured"
+          subtitle="Automatically, whenever you open the app and in the background">
           <Card>
-            <Pressable
-              onPress={runSync}
-              disabled={syncing}
-              style={({ pressed }) => [
-                styles.button,
-                styles.noTopMargin,
-                {
-                  backgroundColor: syncing
-                    ? theme.backgroundSelected
-                    : pressed
-                      ? theme.primaryPressed
-                      : theme.primary,
-                },
-              ]}
-              accessibilityRole="button">
-              {syncing ? (
-                <ActivityIndicator size="small" color={theme.textSecondary} />
-              ) : (
-                <Ionicons name="sync" size={16} color={theme.onPrimary} />
-              )}
-              <Text
-                style={[
-                  Typography.bodyStrong,
-                  { color: syncing ? theme.textSecondary : theme.onPrimary },
-                ]}>
-                {syncing ? 'Reading your phone...' : 'Sync now'}
-              </Text>
-            </Pressable>
-
             {/* Permission coverage, so missing columns are explained up front */}
-            <View style={styles.coverage}>
+            <View style={styles.coverageTop}>
               {[
                 { label: 'Screen time, apps, late night', ok: permissions.usageAccess },
                 { label: 'Calls', ok: permissions.callLog },
@@ -302,120 +278,41 @@ export default function DataScreen() {
         </Section>
       ) : null}
 
-      {/* --- sync result --- */}
-      {syncError ? (
-        <Card>
-          <View style={styles.row}>
-            <Ionicons name="alert-circle-outline" size={18} color={theme.riskHigh} />
-            <Text style={[Typography.bodyStrong, styles.flex, { color: theme.riskHigh }]}>
-              Sync failed
-            </Text>
-          </View>
-          <Text style={[Typography.caption, styles.gapTop, { color: theme.textSecondary }]}>
-            {syncError}
-          </Text>
-        </Card>
-      ) : null}
-
-      {capture?.captureBlocked ? (
-        <Card>
-          <View style={styles.row}>
-            <Ionicons name="alert-circle-outline" size={16} color={theme.riskHigh} />
-            <Text style={[Typography.bodyStrong, styles.flex, { color: theme.text }]}>
-              Nothing could be captured
-            </Text>
-          </View>
-          <Text style={[Typography.caption, styles.gapTop, { color: theme.textSecondary }]}>
-            {capture.captureBlocked}
-          </Text>
-        </Card>
-      ) : null}
-
-      {/* An unreachable backend is a DEFERRAL, not a failure: the days are
-          already stored on the phone. Saying "could not sync" here would be
-          misleading, because the half that expires has already succeeded. */}
-      {capture?.uploadDeferred ? (
-        <Card>
-          <View style={styles.row}>
-            <Ionicons name="cloud-offline-outline" size={16} color={theme.riskMedium} />
-            <Text style={[Typography.bodyStrong, styles.flex, { color: theme.text }]}>
-              Saved on your phone, not yet sent
-            </Text>
-          </View>
-          <Text style={[Typography.caption, styles.gapTop, { color: theme.textSecondary }]}>
-            {capture.uploadDeferred}
-          </Text>
-        </Card>
-      ) : null}
-
-      {capture?.response ? (
-        <Section title="Last sync">
-          <Card>
-            <View style={styles.statRow}>
-              {[
-                { label: 'Added', value: capture.response.created },
-                { label: 'Updated', value: capture.response.updated },
-                { label: 'Skipped', value: capture.response.skipped },
-              ].map((stat) => (
-                <View key={stat.label} style={styles.stat}>
-                  <Text style={[Typography.heading, { color: theme.text }]}>{stat.value}</Text>
-                  <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                    {stat.label}
+      {/* --- daily screen time, last 14 days --- */}
+      <Section title={`Last ${TREND_DAYS} days`} subtitle="Daily screen time in hours">
+        <ApiStateView state={trendRecords} loadingLabel="Loading trend">
+          {(rows) =>
+            rows.length < 2 ? (
+              <Card>
+                <Text style={[Typography.caption, { color: theme.textSecondary }]}>
+                  At least two days are needed to draw a trend.
+                </Text>
+              </Card>
+            ) : (
+              <Card>
+                <LineChart
+                  data={[...rows].reverse().map((r) => r.total_screen_minutes / 60)}
+                  height={170}
+                  color={theme.series1}
+                  gridColor={theme.grid}
+                  showArea
+                  showDots
+                  startAtZero
+                  gradientId="dataTrend"
+                />
+                <View style={styles.axisRow}>
+                  <Text style={[Typography.tabular, { color: theme.textMuted }]}>
+                    {rows[rows.length - 1]?.record_date.slice(5)}
+                  </Text>
+                  <Text style={[Typography.tabular, { color: theme.textMuted }]}>
+                    {rows[0]?.record_date.slice(5)}
                   </Text>
                 </View>
-              ))}
-            </View>
-
-            {capture.capture ? (
-              <Text style={[Typography.caption, styles.gapTop, { color: theme.textMuted }]}>
-                read {capture.capture.daysRead} days from Android ·{' '}
-                {capture.capture.created} newly stored · {capture.capture.updated} updated ·{' '}
-                {capture.uploaded} sent
-                {capture.capture.refusedDegraded > 0
-                  ? ` · ${capture.capture.refusedDegraded} older read${
-                      capture.capture.refusedDegraded === 1 ? '' : 's'
-                    } refused for reporting less than the day already saved`
-                  : ''}
-              </Text>
-            ) : null}
-
-            {/* Why rows were skipped - never hidden */}
-            {capture.response.skipped_detail.length > 0 ? (
-              <View style={styles.skipped}>
-                <Text style={[Typography.label, { color: theme.textMuted }]}>
-                  WHY SOME DAYS WERE SKIPPED
-                </Text>
-                {capture.response.skipped_detail.slice(0, 4).map((item) => (
-                  <Text
-                    key={item.record_date}
-                    style={[Typography.caption, { color: theme.textSecondary }]}>
-                    {item.record_date}: {item.reason}
-                  </Text>
-                ))}
-                {capture.response.skipped_detail.length > 4 ? (
-                  <Text style={[Typography.caption, { color: theme.textMuted }]}>
-                    and {capture.response.skipped_detail.length - 4} more
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-
-            {/* Fields that arrived empty, with the reason */}
-            {Object.keys(capture.response.missing_fields).length > 0 ? (
-              <View style={styles.skipped}>
-                <Text style={[Typography.label, { color: theme.textMuted }]}>
-                  FIELDS YOUR PHONE COULD NOT SUPPLY
-                </Text>
-                {Object.entries(capture.response.missing_fields).map(([field, reason]) => (
-                  <Text key={field} style={[Typography.caption, { color: theme.textSecondary }]}>
-                    {field.replace(/_/g, ' ')}: {reason}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-          </Card>
-        </Section>
-      ) : null}
+              </Card>
+            )
+          }
+        </ApiStateView>
+      </Section>
 
       {/* --- what the backend holds --- */}
       <Section title="Stored history">
@@ -431,7 +328,7 @@ export default function DataScreen() {
                 </Text>
               ) : (
                 <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                  Nothing synced from the phone yet.
+                  Nothing captured from the phone yet.
                 </Text>
               )}
 
@@ -477,7 +374,7 @@ export default function DataScreen() {
             data.length === 0 ? (
               <Card>
                 <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                  No records yet. Sync to pull in your phone&apos;s usage.
+                  No records yet. Your phone&apos;s usage appears here automatically.
                 </Text>
               </Card>
             ) : (
@@ -516,7 +413,12 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   gapTop: { marginTop: Spacing.two },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  coverage: { gap: Spacing.one, marginTop: Spacing.three },
+  coverageTop: { gap: Spacing.one },
+  axisRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: Spacing.one,
+  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -526,10 +428,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     marginTop: Spacing.three,
   },
-  noTopMargin: { marginTop: 0 },
   link: { marginTop: Spacing.two, textDecorationLine: 'underline' },
   statRow: { flexDirection: 'row', gap: Spacing.four },
-  stat: { flex: 1, gap: 2 },
   skipped: { gap: Spacing.one, marginTop: Spacing.three },
   recordRow: {
     flexDirection: 'row',

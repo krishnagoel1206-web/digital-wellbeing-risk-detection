@@ -121,7 +121,6 @@ export default function InsightsScreen() {
     useCallback(() => api.getAnomalies(scope, { limit: 10, only_anomalous: true }), [scope]),
     [scope]
   );
-  const score = useApi(useCallback(() => api.getRiskScore(scope), [scope]), [scope]);
   const confidence = useApi(
     useCallback(() => api.getRiskConfidence(scope, 12), [scope]),
     [scope]
@@ -133,8 +132,7 @@ export default function InsightsScreen() {
     forecast.refetch();
     persona.refetch();
     anomalies.refetch();
-    score.refetch();
-  }, [classification, confidence, forecast, persona, anomalies, score]);
+  }, [classification, confidence, forecast, persona, anomalies]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
@@ -404,7 +402,10 @@ export default function InsightsScreen() {
                           <Text style={[Typography.caption, { color: theme.textSecondary }]}>
                             {day.explanation}
                           </Text>
-                          {day.contributing_features.slice(0, 3).map((feature) => (
+                          {day.contributing_features
+                            .filter((feature) => feature.feature !== 'social_ratio')
+                            .slice(0, 3)
+                            .map((feature) => (
                             <Text
                               key={feature.feature}
                               style={[Typography.caption, { color: theme.textMuted }]}>
@@ -419,11 +420,6 @@ export default function InsightsScreen() {
                         </View>
                       </View>
                     ))}
-                    <View style={[styles.anomaly, { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth }]}>
-                      <Text style={[Typography.caption, { color: theme.textMuted }]}>
-                        {`Checked together: ${data.features_checked.join(', ')}. ${data.combination_only_days} day(s) were unusual only as a combination - no single measure stood out. ${data.combination_method}`}
-                      </Text>
-                    </View>
                   </Card>
                 )
               }
@@ -456,85 +452,6 @@ export default function InsightsScreen() {
                       You sit almost exactly between two groups, so this could easily have gone
                       the other way.
                     </Caveat>
-                  ) : null}
-                </Card>
-              )}
-            </ApiStateView>
-          </Section>
-
-          {/* ---------- 5. PCA behaviour index + Bayesian ---------- */}
-          <Section
-            title="Behaviour index"
-            subtitle="A combined 0-100 summary of several measures">
-            <ApiStateView
-              state={score}
-              loadingLabel="Scoring"
-              notReadyHint="Check Usage Data to see which measurements are still building up.">
-              {(data) => (
-                <Card>
-                  <View style={styles.rowBetween}>
-                    <Text style={[Typography.display, { color: theme.text }]}>
-                      {Math.round(data.current_score)}
-                    </Text>
-                    <View style={styles.scoreMeta}>
-                      <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                        out of 100
-                      </Text>
-                      <Text style={[Typography.caption, { color: theme.textMuted }]}>
-                        {data.days_scored} days scored
-                      </Text>
-                    </View>
-                  </View>
-
-                  {data.score_history.length > 1 ? (
-                    <LineChart
-                      data={data.score_history.map((h) => h.score)}
-                      height={110}
-                      color={theme.series7}
-                      gridColor={theme.grid}
-                      showArea
-                      startAtZero
-                      gradientId="scoreHistory"
-                    />
-                  ) : null}
-
-                  <View style={[styles.metrics, { borderTopColor: theme.border }]}>
-                    <Text style={[Typography.label, { color: theme.textMuted }]}>
-                      HOW OFTEN YOUR DAYS RUN HIGH
-                    </Text>
-                    <Text style={[Typography.body, { color: theme.text }]}>
-                      {formatPercent(data.bayesian.estimated_rate)} of days
-                    </Text>
-                    <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                      95% confidence between{' '}
-                      {formatPercent(data.bayesian.credible_interval[0])} and{' '}
-                      {formatPercent(data.bayesian.credible_interval[1])}
-                    </Text>
-                    <Text style={[Typography.caption, { color: theme.textMuted }]}>
-                      A day counts as high when its behaviour index is {data.elevated_threshold}{' '}
-                      or more ({data.elevated_days} of your {data.days_scored} days so far).
-                    </Text>
-                    {!data.bayesian.is_reliable ? (
-                      <Text style={[Typography.caption, { color: theme.riskMedium }]}>
-                        Too few days for this range to mean much yet.
-                      </Text>
-                    ) : null}
-                  </View>
-
-                  {/* The honest headline: this score did not validate. */}
-                  {!data.suitable_as_headline_risk ? (
-                    <View
-                      style={[
-                        styles.warning,
-                        { backgroundColor: theme.riskMediumSurface, borderColor: theme.border },
-                      ]}>
-                      <Text style={[Typography.caption, { color: theme.riskMedium }]}>
-                        This index did not pass validation as a risk measure: it separates low
-                        usage from the rest but barely distinguishes medium from high. Treat it
-                        as a summary of behaviour, not a verdict. The risk category at the top
-                        of this screen is the better-supported signal.
-                      </Text>
-                    </View>
                   ) : null}
                 </Card>
               )}
@@ -598,12 +515,5 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: Spacing.three },
-  scoreMeta: { alignItems: 'flex-end', gap: 1 },
-  warning: {
-    marginTop: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
   bottomSpacer: { height: BottomTabInset + Spacing.four },
 });

@@ -1,0 +1,119 @@
+{
+  "task": "regression",
+  "target": "total_screen_minutes (next day)",
+  "trained_at": "2026-11-07T02:06:35",
+  "n_samples": 360,
+  "training_data": {
+    "rows_by_source": {
+      "synthetic": 359,
+      "device": 8
+    },
+    "contains_synthetic": true,
+    "fitted_on": "mixed",
+    "note": "Fitted on 8 measured day(s) and 359 generated demonstration day(s). The generated days outnumber or dilute the real ones, so predictions describe the mixture, not this person."
+  },
+  "excluded_incomplete_day": "The current date was excluded from training: it held 76 minutes at the time of training and was still accumulating, so it is a day so far rather than a day.",
+  "rows_dropped_warmup": 7,
+  "cv_strategy": "TimeSeriesSplit(n_splits=5)",
+  "cv_note": "TimeSeriesSplit is used instead of KFold because the data is ordered in time. Shuffling would train on future days to predict earlier ones and make the error look far smaller than it is.",
+  "feature_columns": [
+    "lag_1",
+    "lag_2",
+    "lag_3",
+    "lag_7",
+    "roll_mean_3",
+    "roll_mean_7",
+    "roll_std_7",
+    "day_of_week",
+    "is_weekend"
+  ],
+  "feature_note": "Every predictor is a lag or a rolling statistic of PRIOR days, so nothing from the target day itself is used.",
+  "naive_persistence_rmse": 77.12586031086336,
+  "naive_note": "Naive baseline predicts today's value for tomorrow. A model that cannot beat this has learned nothing useful.",
+  "best_model": "Lasso",
+  "sample_size_warning": null,
+  "models": [
+    {
+      "name": "LinearRegression",
+      "rmse": 60.27083149149833,
+      "mae": 46.274442936844586,
+      "r2": 0.4273395513073336,
+      "rmse_pct_of_mean": 14.758637407825699,
+      "fold_rmse": [
+        52.23630592468712,
+        47.504553563570504,
+        51.94563031756475,
+        65.57011492354036,
+        78.61146797558166
+      ],
+      "coefficients": {
+        "lag_1": 25.593999097384728,
+        "lag_2": -10.10983924327963,
+        "lag_3": 5.132749523486281,
+        "lag_7": -5.744513156167998,
+        "roll_mean_3": 8.746738714103813,
+        "roll_mean_7": 19.679864011666247,
+        "roll_std_7": -4.246847478860975,
+        "day_of_week": 13.625222167972176,
+        "is_weekend": 27.181811861857515
+      },
+      "intercept": 403.1166666666667,
+      "beats_naive": true
+    },
+    {
+      "name": "Ridge",
+      "rmse": 60.09628523798461,
+      "mae": 46.060720226973835,
+      "r2": 0.430651634312748,
+      "rmse_pct_of_mean": 14.71589592238814,
+      "fold_rmse": [
+        51.65968894964373,
+        47.59508326041423,
+        51.72383422049517,
+        65.47458595552649,
+        78.49538618014078
+      ],
+      "coefficients": {
+        "lag_1": 25.56308453908787,
+        "lag_2": -9.941694312905867,
+        "lag_3": 5.157011921650261,
+        "lag_7": -5.482372454585118,
+        "roll_mean_3": 8.815667645501414,
+        "roll_mean_7": 19.31856964904744,
+        "roll_std_7": -4.23382696626803,
+        "day_of_week": 13.790112056019183,
+        "is_weekend": 26.888055485681274
+      },
+      "intercept": 403.1166666666667,
+      "beats_naive": true
+    },
+    {
+      "name": "Lasso",
+      "rmse": 59.948713481347674,
+      "mae": 46.120733775747176,
+      "r2": 0.4334443719727201,
+      "rmse_pct_of_mean": 14.679759735215287,
+      "fold_rmse": [
+        52.376073179965495,
+        47.68293867513884,
+        50.98886286285872,
+        64.65595723653243,
+        78.56251406156566
+      ],
+      "coefficients": {
+        "lag_1": 28.908080425616916,
+        "lag_2": -1.7960006561681192,
+        "lag_3": 8.224515187234424,
+        "lag_7": -0.0,
+        "roll_mean_3": 0.0,
+        "roll_mean_7": 13.100747104637195,
+        "roll_std_7": -3.2327324946670903,
+        "day_of_week": 15.023836687618441,
+        "is_weekend": 22.840959153244413
+      },
+      "intercept": 403.1166666666667,
+      "beats_naive": true
+    }
+  ],
+  "artifact": "regression_forecast.joblib"
+}

@@ -1,0 +1,49 @@
+{
+  "task": "recommendations",
+  "trained_at": "2026-11-07T01:54:01",
+  "n_samples": 7500,
+  "features": [
+    "daily_screen_time_hours",
+    "social_media_hours",
+    "gaming_hours",
+    "work_study_hours",
+    "sleep_hours",
+    "notifications_per_day",
+    "app_opens_per_day"
+  ],
+  "n_neighbours": 75,
+  "mutual_information": {
+    "daily_screen_time_hours": 0.25283,
+    "social_media_hours": 0.17309,
+    "gaming_hours": 0.00118,
+    "work_study_hours": 0.01106,
+    "sleep_hours": 0.0,
+    "notifications_per_day": 0.00456,
+    "app_opens_per_day": 0.00572
+  },
+  "population_grounded_features": [
+    "daily_screen_time_hours",
+    "social_media_hours"
+  ],
+  "personal_only_features": [
+    "gaming_hours",
+    "sleep_hours",
+    "notifications_per_day",
+    "app_opens_per_day"
+  ],
+  "evidence": {
+    "daily_screen_time_hours": "mutual information 0.2528 with the risk label, so a population comparison on this feature is supported",
+    "social_media_hours": "mutual information 0.1731 with the risk label, so a population comparison on this feature is supported",
+    "gaming_hours": "mutual information only 0.0012 with the risk label in this dataset, so no population-grounded claim can be made; personal-baseline advice only",
+    "work_study_hours": "not something this app should advise changing",
+    "sleep_hours": "mutual information only 0.0000 with the risk label in this dataset, so no population-grounded claim can be made; personal-baseline advice only",
+    "notifications_per_day": "mutual information only 0.0046 with the risk label in this dataset, so no population-grounded claim can be made; personal-baseline advice only",
+    "app_opens_per_day": "mutual information only 0.0057 with the risk label in this dataset, so no population-grounded claim can be made; personal-baseline advice only"
+  },
+  "claim_policy": {
+    "allowed": "Associational comparisons: 'people with similar usage who are classified lower-risk typically have X lower by Y'.",
+    "forbidden": "Causal or outcome claims: 'reducing X will lower your risk', or any statement about what happened to people after they changed behaviour. This dataset is cross-sectional - nobody was followed over time, so it contains no outcomes."
+  },
+  "comparison_group": "The low-risk subset of the user's nearest neighbours. Comparing against all neighbours would only describe people like the user; the informative contrast is with similar people who are nonetheless classified lower-risk.",
+  "artifact": "knn_recommender.joblib"
+}

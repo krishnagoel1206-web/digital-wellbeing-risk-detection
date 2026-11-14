@@ -1,0 +1,183 @@
+{
+  "task": "risk_scoring",
+  "trained_at": "2026-11-07T01:53:58",
+  "n_samples": 7500,
+  "features": [
+    "daily_screen_time_hours",
+    "social_media_hours",
+    "gaming_hours",
+    "work_study_hours",
+    "sleep_hours",
+    "notifications_per_day",
+    "app_opens_per_day"
+  ],
+  "method": {
+    "step_1": "standardise features (zero mean, unit variance)",
+    "step_2": "fit PCA and retain the components reaching 80% cumulative explained variance -> 6 component(s)",
+    "step_3": "weight each retained component by its share of the retained variance, so weights sum to 1",
+    "step_4": "orient the composite using the known risk labels, because the sign of a principal component is arbitrary",
+    "step_5": "map the raw composite onto 0-100 by percentile rank against the training distribution, not min-max (which one outlier would dominate)"
+  },
+  "explained_variance_ratio": [
+    0.15089803446592379,
+    0.14614249813212074,
+    0.14395790774694167,
+    0.14290174438781605,
+    0.14084474779120318,
+    0.1389790944238714,
+    0.13627597305212333
+  ],
+  "cumulative_explained_variance": [
+    0.15089803446592379,
+    0.2970405325980445,
+    0.4409984403449862,
+    0.5839001847328023,
+    0.7247449325240054,
+    0.8637240269478768,
+    1.0
+  ],
+  "n_components_retained": 6,
+  "orientation": "sign FLIPPED: correlation with the risk ordinal was -0.4021 before orienting, so higher score now means higher risk",
+  "sign_flipped": true,
+  "components": [
+    {
+      "index": 0,
+      "explained_variance_ratio": 0.1509,
+      "weight": 0.1747,
+      "dominant_features": [
+        "sleep_hours",
+        "work_study_hours",
+        "app_opens_per_day"
+      ],
+      "loadings": {
+        "daily_screen_time_hours": -0.3683,
+        "social_media_hours": -0.0949,
+        "gaming_hours": 0.0496,
+        "work_study_hours": 0.5167,
+        "sleep_hours": -0.5282,
+        "notifications_per_day": -0.3271,
+        "app_opens_per_day": -0.4472
+      }
+    },
+    {
+      "index": 1,
+      "explained_variance_ratio": 0.1461,
+      "weight": 0.1692,
+      "dominant_features": [
+        "notifications_per_day",
+        "gaming_hours",
+        "daily_screen_time_hours"
+      ],
+      "loadings": {
+        "daily_screen_time_hours": -0.3924,
+        "social_media_hours": -0.3679,
+        "gaming_hours": 0.4774,
+        "work_study_hours": -0.1902,
+        "sleep_hours": 0.0847,
+        "notifications_per_day": 0.5919,
+        "app_opens_per_day": -0.2985
+      }
+    },
+    {
+      "index": 2,
+      "explained_variance_ratio": 0.144,
+      "weight": 0.1667,
+      "dominant_features": [
+        "gaming_hours",
+        "daily_screen_time_hours",
+        "social_media_hours"
+      ],
+      "loadings": {
+        "daily_screen_time_hours": -0.4858,
+        "social_media_hours": -0.4313,
+        "gaming_hours": -0.6255,
+        "work_study_hours": -0.3659,
+        "sleep_hours": -0.097,
+        "notifications_per_day": -0.0963,
+        "app_opens_per_day": 0.1846
+      }
+    },
+    {
+      "index": 3,
+      "explained_variance_ratio": 0.1429,
+      "weight": 0.1654,
+      "dominant_features": [
+        "social_media_hours",
+        "app_opens_per_day",
+        "daily_screen_time_hours"
+      ],
+      "loadings": {
+        "daily_screen_time_hours": 0.3691,
+        "social_media_hours": -0.6272,
+        "gaming_hours": 0.1611,
+        "work_study_hours": 0.2811,
+        "sleep_hours": -0.3373,
+        "notifications_per_day": 0.1103,
+        "app_opens_per_day": 0.4894
+      }
+    },
+    {
+      "index": 4,
+      "explained_variance_ratio": 0.1408,
+      "weight": 0.1631,
+      "dominant_features": [
+        "sleep_hours",
+        "app_opens_per_day",
+        "social_media_hours"
+      ],
+      "loadings": {
+        "daily_screen_time_hours": 0.281,
+        "social_media_hours": -0.4336,
+        "gaming_hours": -0.325,
+        "work_study_hours": 0.3229,
+        "sleep_hours": 0.565,
+        "notifications_per_day": -0.0256,
+        "app_opens_per_day": -0.4509
+      }
+    },
+    {
+      "index": 5,
+      "explained_variance_ratio": 0.139,
+      "weight": 0.1609,
+      "dominant_features": [
+        "notifications_per_day",
+        "gaming_hours",
+        "work_study_hours"
+      ],
+      "loadings": {
+        "daily_screen_time_hours": 0.0252,
+        "social_media_hours": 0.2849,
+        "gaming_hours": -0.4852,
+        "work_study_hours": 0.329,
+        "sleep_hours": -0.2336,
+        "notifications_per_day": 0.7211,
+        "app_opens_per_day": -0.0065
+      }
+    }
+  ],
+  "validation": {
+    "validated": true,
+    "spearman_rho": 0.4021107016662229,
+    "spearman_p": 1.5775017904585387e-289,
+    "mean_score_per_class": {
+      "Low": 30.24,
+      "Medium": 56.23,
+      "High": 60.46
+    },
+    "monotonic_low_medium_high": true,
+    "low_to_high_separation": 30.22,
+    "interpretation": "A positive rho with monotonically increasing class means shows the composite score orders the known risk classes correctly. Monotonicity failing would mean the construction does not measure risk, regardless of how much variance it explains."
+  },
+  "kernel_pca_comparison": {
+    "attempted": true,
+    "kernel": "rbf",
+    "n_subsample": 2000,
+    "spearman_rho_pc1": 0.3097905376066622,
+    "spearman_p": 9.662124406072019e-46,
+    "abs_rho": 0.3097905376066622,
+    "limitation": "Kernel PCA components have no feature loadings, so a score built on them cannot explain WHICH behaviour drove it. That matters more than a small accuracy gain for an app that has to tell the user why."
+  },
+  "adopted_method": "PCA",
+  "adoption_reason": "Linear PCA adopted. |rho| linear = 0.4021, kernel = 0.3098. Linear PCA is preferred unless the kernel is decisively better, because only linear loadings let the app explain which behaviour drove the score.",
+  "artifact": "risk_score_pca.joblib"
+}

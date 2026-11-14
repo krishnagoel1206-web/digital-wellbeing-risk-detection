@@ -1,0 +1,278 @@
+{
+  "task": "clustering",
+  "trained_at": "2026-11-07T01:53:52",
+  "n_samples": 7500,
+  "features": [
+    "daily_screen_time_hours",
+    "social_media_hours",
+    "gaming_hours",
+    "work_study_hours",
+    "sleep_hours",
+    "notifications_per_day",
+    "app_opens_per_day"
+  ],
+  "features_unavailable": [],
+  "late_night_note": "This dataset contains no late-night usage column, so a 'late-night scroller' persona cannot be derived from it. Naming one here would mean labelling a cluster with a behaviour the data never measured. Late-night behaviour is handled by the personal baseline module, which uses the user's own records.",
+  "k_selection": {
+    "chosen_k": 2,
+    "method": "highest silhouette score over k = 2..6",
+    "sweep": [
+      {
+        "k": 2,
+        "silhouette": 0.10699076310821362,
+        "inertia": 46828.82753108883
+      },
+      {
+        "k": 3,
+        "silhouette": 0.0958503821549088,
+        "inertia": 43310.544009393576
+      },
+      {
+        "k": 4,
+        "silhouette": 0.10240417544043909,
+        "inertia": 40504.7677470423
+      },
+      {
+        "k": 5,
+        "silhouette": 0.09909101506064355,
+        "inertia": 38380.95343568096
+      },
+      {
+        "k": 6,
+        "silhouette": 0.10050708628185728,
+        "inertia": 36545.44225741393
+      }
+    ],
+    "silhouette_spread": 0.0111,
+    "selection_is_meaningful": false
+  },
+  "dbscan_eps_selection": {
+    "method": "90th percentile of distance to the 14th nearest neighbour",
+    "k": 14,
+    "eps": 1.4295706589181563,
+    "kth_distance_min": 0.9699633589088429,
+    "kth_distance_median": 1.2506808623227275,
+    "kth_distance_max": 2.023967677618541
+  },
+  "overall_structure": {
+    "verdict": "weak",
+    "silhouette": 0.107,
+    "detail": "Barely any separation. The algorithm has partitioned a largely continuous cloud of points, so these groups are convenient divisions rather than naturally occurring types."
+  },
+  "deployed_model": "KMeans",
+  "deployed_reason": "K-Means always assigns a cluster. DBSCAN can label a person as noise, which is informative for analysis but unhelpful when the app needs to show the user their closest persona.",
+  "kmeans_birch_agreement_ari": 0.02635886187097637,
+  "algorithms": {
+    "KMeans": {
+      "n_clusters": 2,
+      "n_noise": 0,
+      "noise_share": 0.0,
+      "scores": {
+        "silhouette": 0.10699076310821362,
+        "calinski_harabasz": 908.0492667909773,
+        "davies_bouldin": 2.822957299959035,
+        "note": null
+      },
+      "structure": {
+        "verdict": "weak",
+        "silhouette": 0.107,
+        "detail": "Barely any separation. The algorithm has partitioned a largely continuous cloud of points, so these groups are convenient divisions rather than naturally occurring types."
+      },
+      "personas": [
+        {
+          "cluster_id": 0,
+          "name": "Heavy overall use",
+          "size": 3826,
+          "share": 0.5101,
+          "traits": [
+            "heavy overall use"
+          ],
+          "centroid_raw": {
+            "daily_screen_time_hours": 9.706,
+            "social_media_hours": 3.36,
+            "gaming_hours": 2.021,
+            "work_study_hours": 3.239,
+            "sleep_hours": 6.785,
+            "notifications_per_day": 134.048,
+            "app_opens_per_day": 101.827
+          },
+          "centroid_z": {
+            "daily_screen_time_hours": 0.845,
+            "social_media_hours": 0.055,
+            "gaming_hours": 0.006,
+            "work_study_hours": -0.002,
+            "sleep_hours": 0.037,
+            "notifications_per_day": -0.003,
+            "app_opens_per_day": 0.082
+          }
+        },
+        {
+          "cluster_id": 1,
+          "name": "Light overall use",
+          "size": 3674,
+          "share": 0.4899,
+          "traits": [
+            "light overall use"
+          ],
+          "centroid_raw": {
+            "daily_screen_time_hours": 5.203,
+            "social_media_hours": 3.183,
+            "gaming_hours": 2.008,
+            "work_study_hours": 3.246,
+            "sleep_hours": 6.688,
+            "notifications_per_day": 134.476,
+            "app_opens_per_day": 93.673
+          },
+          "centroid_z": {
+            "daily_screen_time_hours": -0.88,
+            "social_media_hours": -0.057,
+            "gaming_hours": -0.006,
+            "work_study_hours": 0.002,
+            "sleep_hours": -0.039,
+            "notifications_per_day": 0.003,
+            "app_opens_per_day": -0.086
+          }
+        }
+      ]
+    },
+    "DBSCAN": {
+      "n_clusters": 1,
+      "n_noise": 5,
+      "noise_share": 0.0006666666666666666,
+      "scores": {
+        "silhouette": null,
+        "calinski_harabasz": null,
+        "davies_bouldin": null,
+        "note": "needs at least 2 non-noise clusters to score"
+      },
+      "structure": {
+        "verdict": "unmeasurable",
+        "detail": "Too few clusters with members to compute a silhouette score."
+      },
+      "personas": [
+        {
+          "cluster_id": -1,
+          "name": "Unclustered (no dense group)",
+          "size": 5,
+          "share": 0.0007,
+          "traits": [],
+          "centroid_raw": {
+            "daily_screen_time_hours": 6.84,
+            "social_media_hours": 1.634,
+            "gaming_hours": 0.734,
+            "work_study_hours": 2.262,
+            "sleep_hours": 6.356,
+            "notifications_per_day": 143.6,
+            "app_opens_per_day": 54.0
+          },
+          "centroid_z": {
+            "daily_screen_time_hours": -0.253,
+            "social_media_hours": -1.034,
+            "gaming_hours": -1.117,
+            "work_study_hours": -0.612,
+            "sleep_hours": -0.297,
+            "notifications_per_day": 0.14,
+            "app_opens_per_day": -0.905
+          }
+        },
+        {
+          "cluster_id": 0,
+          "name": "Balanced user",
+          "size": 7495,
+          "share": 0.9993,
+          "traits": [],
+          "centroid_raw": {
+            "daily_screen_time_hours": 7.5,
+            "social_media_hours": 3.275,
+            "gaming_hours": 2.015,
+            "work_study_hours": 3.243,
+            "sleep_hours": 6.738,
+            "notifications_per_day": 134.251,
+            "app_opens_per_day": 97.862
+          },
+          "centroid_z": {
+            "daily_screen_time_hours": 0.0,
+            "social_media_hours": 0.001,
+            "gaming_hours": 0.001,
+            "work_study_hours": 0.0,
+            "sleep_hours": 0.0,
+            "notifications_per_day": -0.0,
+            "app_opens_per_day": 0.001
+          }
+        }
+      ]
+    },
+    "BIRCH": {
+      "n_clusters": 2,
+      "n_noise": 0,
+      "noise_share": 0.0,
+      "scores": {
+        "silhouette": 0.06279775540669345,
+        "calinski_harabasz": 465.1707307996328,
+        "davies_bouldin": 3.44313358168171,
+        "note": null
+      },
+      "structure": {
+        "verdict": "none",
+        "silhouette": 0.0628,
+        "detail": "No meaningful cluster structure. Any grouping reported is an artefact of the algorithm, not a property of the data."
+      },
+      "personas": [
+        {
+          "cluster_id": 0,
+          "name": "Balanced user",
+          "size": 5497,
+          "share": 0.7329,
+          "traits": [],
+          "centroid_raw": {
+            "daily_screen_time_hours": 7.767,
+            "social_media_hours": 3.094,
+            "gaming_hours": 2.076,
+            "work_study_hours": 2.846,
+            "sleep_hours": 6.705,
+            "notifications_per_day": 134.388,
+            "app_opens_per_day": 109.796
+          },
+          "centroid_z": {
+            "daily_screen_time_hours": 0.102,
+            "social_media_hours": -0.113,
+            "gaming_hours": 0.054,
+            "work_study_hours": -0.247,
+            "sleep_hours": -0.025,
+            "notifications_per_day": 0.002,
+            "app_opens_per_day": 0.247
+          }
+        },
+        {
+          "cluster_id": 1,
+          "name": "Work and study focused, infrequent checking",
+          "size": 2003,
+          "share": 0.2671,
+          "traits": [
+            "work and study focused",
+            "infrequent checking"
+          ],
+          "centroid_raw": {
+            "daily_screen_time_hours": 6.768,
+            "social_media_hours": 3.765,
+            "gaming_hours": 1.845,
+            "work_study_hours": 4.329,
+            "sleep_hours": 6.827,
+            "notifications_per_day": 133.898,
+            "app_opens_per_day": 64.999
+          },
+          "centroid_z": {
+            "daily_screen_time_hours": -0.28,
+            "social_media_hours": 0.31,
+            "gaming_hours": -0.147,
+            "work_study_hours": 0.679,
+            "sleep_hours": 0.07,
+            "notifications_per_day": -0.005,
+            "app_opens_per_day": -0.678
+          }
+        }
+      ]
+    }
+  },
+  "artifact": "clustering_personas.joblib"
+}

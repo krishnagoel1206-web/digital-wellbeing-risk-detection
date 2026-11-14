@@ -40,14 +40,14 @@ export function combinationLine(day: {
 }): string | null {
   const p = day.mahalanobis_p;
   if (p == null) return null;
-  const pText = p < 0.001 ? '<0.001' : p.toFixed(p < 0.01 ? 3 : 2);
+  const pText = p < 0.001 ? 'below 0.001' : p.toFixed(p < 0.01 ? 3 : 2);
   if (day.unusual_combination) {
-    return `All measures together: an unusual combination for you (p = ${pText}), even though no single measure is extreme.`;
+    return `All measures together: an unusual combination for you (p ${pText.startsWith('below') ? '' : '= '}${pText}), even though no single measure is extreme.`;
   }
   if (p < 0.01) {
-    return `All measures together: also unusual as a combination (p = ${pText}).`;
+    return `All measures together: also unusual as a combination (p ${pText.startsWith('below') ? '' : '= '}${pText}).`;
   }
-  return `All measures together: a combination you have had before (p = ${pText}).`;
+  return `All measures together: a combination you have had before (p ${pText.startsWith('below') ? '' : '= '}${pText}).`;
 }
 
 const styles = StyleSheet.create({

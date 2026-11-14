@@ -57,6 +57,30 @@ export function formatDayAndDate(iso: string): string {
   });
 }
 
+/** Where a stored day came from, in words. */
+export function formatSource(source: string): string {
+  switch (source) {
+    case 'device':
+      return 'Measured by this phone';
+    case 'wellbeing':
+      return 'From Digital Wellbeing';
+    case 'manual':
+      return 'Entered by you';
+    case 'csv':
+      return 'Imported file';
+    case 'synthetic':
+      return 'Demo data';
+    default:
+      return source;
+  }
+}
+
+/** "notification_count" -> "Notification count". */
+export function formatFieldName(field: string): string {
+  const words = field.replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 /** Today as an ISO date string, in the device's local timezone. */
 export function todayIso(): string {
   const now = new Date();

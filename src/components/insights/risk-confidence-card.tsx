@@ -7,7 +7,9 @@
  * occurs with a credible interval, and the week-by-week record it came from.
  */
 
-import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
 import { Radius, Spacing, Typography } from '@/constants/theme';
@@ -20,6 +22,7 @@ export function RiskConfidenceCard({ data: c }: { data: RiskConfidenceResponse }
   const colorFor = (k: RiskLevelName) =>
     ({ Low: theme.riskLow, Medium: theme.riskMedium, High: theme.riskHigh })[k];
   const top = c.most_likely_class;
+  const [showMethod, setShowMethod] = useState(false);
 
   return (
     <Card>
@@ -88,27 +91,44 @@ export function RiskConfidenceCard({ data: c }: { data: RiskConfidenceResponse }
                     Typography.caption,
                     { color: w.synthetic_days ? theme.textMuted : theme.textSecondary },
                   ]}>
-                  {formatShortDate(w.start).split(' ')[0]}
+                  {formatShortDate(w.start)}
                 </Text>
               </View>
             ))}
           </View>
           <Text style={[Typography.caption, { color: theme.textMuted }]}>
-            Oldest to newest, labelled by the day each week starts. Letter = the class that week
-            was given. Grey dates contain demo days.
+            Oldest to newest, by the day each week starts. The letter is the risk level that
+            week was given.
           </Text>
         </View>
 
-        <Text style={[Typography.caption, { color: theme.textMuted }]}>
-          {`Method: each week's class probabilities are added as evidence to a ${c.prior} prior, giving a Dirichlet posterior over how often you are in each class.`}
-        </Text>
-        {c.caveats
-          .filter((x): x is string => Boolean(x))
-          .map((x) => (
-            <Text key={x} style={[Typography.caption, { color: theme.textSecondary }]}>
-              {`• ${x}`}
+        <Pressable
+          onPress={() => setShowMethod((v) => !v)}
+          style={[styles.toggle, { borderTopColor: theme.border }]}
+          accessibilityRole="button">
+          <Text style={[Typography.caption, styles.flex, { color: theme.primary }]}>
+            {showMethod ? 'Hide how this works' : 'How this works'}
+          </Text>
+          <Ionicons
+            name={showMethod ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={theme.primary}
+          />
+        </Pressable>
+        {showMethod ? (
+          <View style={styles.stackSm}>
+            <Text style={[Typography.caption, { color: theme.textSecondary }]}>
+              {`Each week's class probabilities are added as evidence to a ${c.prior} prior, giving a Dirichlet posterior over how often you are in each class.`}
             </Text>
-          ))}
+            {c.caveats
+              .filter((x): x is string => Boolean(x))
+              .map((x) => (
+                <Text key={x} style={[Typography.caption, { color: theme.textMuted }]}>
+                  {`• ${x}`}
+                </Text>
+              ))}
+          </View>
+        ) : null}
       </View>
     </Card>
   );
@@ -126,6 +146,12 @@ const styles = StyleSheet.create({
   band: { position: 'absolute', top: 0, bottom: 0, opacity: 0.3 },
   fill: { height: 8, borderTopRightRadius: 4, borderBottomRightRadius: 4 },
   weeks: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  week: { alignItems: 'center', gap: 2, width: 30 },
+  week: { alignItems: 'center', gap: 2, minWidth: 48 },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+  },
   dot: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });

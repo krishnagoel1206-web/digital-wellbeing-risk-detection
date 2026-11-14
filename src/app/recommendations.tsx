@@ -44,6 +44,7 @@ import { useApi } from '@/hooks/use-api';
 import { useScope } from '@/hooks/use-scope';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/services/api/endpoints';
+import { formatMinutes, formatPercent } from '@/utils/format';
 import type { Recommendation } from '@/types/api';
 
 const BASIS_LABEL: Record<Recommendation['evidence_basis'], string> = {
@@ -68,13 +69,25 @@ const EVIDENCE_LABELS: Record<string, string> = {
   most_extreme_value: 'Most extreme',
 };
 
+/** Evidence values with their units, e.g. 4.23 hours -> "4h 14m". */
+function formatEvidence(key: string, feature: string, value: unknown): string {
+  if (typeof value !== 'number') return String(value);
+  if (key.startsWith('n_') || key.startsWith('days_')) return Math.round(value).toLocaleString();
+  if (feature.endsWith('_hours') && feature !== 'sleep_hours') return formatMinutes(value * 60);
+  if (feature === 'sleep_hours') return `${value.toFixed(1)} h`;
+  if (feature === 'total_screen_minutes' || feature.endsWith('_minutes')) return formatMinutes(value);
+  if (feature.endsWith('_ratio')) return formatPercent(value);
+  return Math.round(value).toLocaleString();
+}
+
 function RecommendationCard({ item }: { item: Recommendation }) {
   const theme = useTheme();
   const isPopulation = item.evidence_basis === 'population_comparison';
 
+  const feature = typeof item.evidence.feature === 'string' ? item.evidence.feature : '';
   const evidenceRows = Object.entries(item.evidence)
     .filter(([key]) => key in EVIDENCE_LABELS)
-    .map(([key, value]) => [EVIDENCE_LABELS[key], String(value)] as const);
+    .map(([key, value]) => [EVIDENCE_LABELS[key], formatEvidence(key, feature, value)] as const);
 
   return (
     <Card>

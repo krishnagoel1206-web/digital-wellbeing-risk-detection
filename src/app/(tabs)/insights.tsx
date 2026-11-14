@@ -47,7 +47,14 @@ import { useApi } from '@/hooks/use-api';
 import { useScope } from '@/hooks/use-scope';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/services/api/endpoints';
-import { formatPercent, riskLevelKey } from '@/utils/format';
+import { formatDayAndDate, formatMinutes, formatPercent, riskLevelKey } from '@/utils/format';
+
+function formatFeature(feature: string, value: number): string {
+  if (feature === 'total_screen_minutes') return formatMinutes(value);
+  if (feature.endsWith('_ratio')) return formatPercent(value);
+  if (feature === 'sleep_hours') return `${value.toFixed(1)} h`;
+  return Math.round(value).toLocaleString();
+}
 
 /** Muted aside used for caveats, so they read as context not findings. */
 function Caveat({ children }: { children: string }) {
@@ -287,7 +294,7 @@ export default function InsightsScreen() {
                         <View style={styles.anomaly}>
                           <View style={styles.rowBetween}>
                             <Text style={[Typography.bodyStrong, { color: theme.text }]}>
-                              {day.date}
+                              {formatDayAndDate(day.date)}
                             </Text>
                             {/* A change from your own normal, not a risk level. */}
                             <SeverityTag severity={day.severity} />
@@ -297,14 +304,14 @@ export default function InsightsScreen() {
                           </Text>
                           {day.contributing_features
                             .filter((feature) => feature.feature !== 'social_ratio')
-                            .slice(0, 3)
+                            .slice(1, 3)
                             .map((feature) => (
-                            <Text
-                              key={feature.feature}
-                              style={[Typography.caption, { color: theme.textMuted }]}>
-                              {feature.label}: {feature.value} vs your usual {feature.your_usual}
-                            </Text>
-                          ))}
+                              <Text
+                                key={feature.feature}
+                                style={[Typography.caption, { color: theme.textMuted }]}>
+                                {`Also ${feature.label}: ${formatFeature(feature.feature, feature.value)} vs your usual ${formatFeature(feature.feature, feature.your_usual)}`}
+                              </Text>
+                            ))}
                           {combinationLine(day) ? (
                             <Text style={[Typography.caption, { color: theme.textMuted }]}>
                               {combinationLine(day)}

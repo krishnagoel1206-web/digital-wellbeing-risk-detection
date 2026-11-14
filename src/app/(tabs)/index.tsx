@@ -42,7 +42,14 @@ import { useApi } from '@/hooks/use-api';
 import { useScope } from '@/hooks/use-scope';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/services/api/endpoints';
-import { formatCount, formatMinutes, formatPercent, percentChange, riskLevelKey } from '@/utils/format';
+import {
+  formatCount,
+  formatDayAndDate,
+  formatMinutes,
+  formatPercent,
+  percentChange,
+  riskLevelKey,
+} from '@/utils/format';
 
 /** Latest day plus the one before it, for the change arrows. */
 const RECENT_DAYS = 2;
@@ -62,18 +69,17 @@ function NavRow({
   return (
     <Link href={href} asChild>
       <Pressable
-        style={({ pressed }) => [
-          styles.navRow,
-          { backgroundColor: pressed ? theme.backgroundSelected : 'transparent' },
-        ]}>
-        <View style={[styles.navIcon, { backgroundColor: theme.primarySubtle }]}>
-          <Ionicons name={icon} size={18} color={theme.primary} />
+        style={({ pressed }) => [pressed && { backgroundColor: theme.backgroundSelected }]}>
+        <View style={styles.navRow}>
+          <View style={[styles.navIcon, { backgroundColor: theme.primarySubtle }]}>
+            <Ionicons name={icon} size={18} color={theme.primary} />
+          </View>
+          <View style={styles.navText}>
+            <Text style={[Typography.bodyStrong, { color: theme.text }]}>{label}</Text>
+            <Text style={[Typography.caption, { color: theme.textSecondary }]}>{hint}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
         </View>
-        <View style={styles.navText}>
-          <Text style={[Typography.bodyStrong, { color: theme.text }]}>{label}</Text>
-          <Text style={[Typography.caption, { color: theme.textSecondary }]}>{hint}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
       </Pressable>
     </Link>
   );
@@ -261,7 +267,7 @@ export default function HomeScreen() {
 
           {/* --- Today's numbers --- */}
           <Section
-            title={latest ? `Latest day · ${latest.record_date}` : 'Latest day'}
+            title={latest ? `Latest day · ${formatDayAndDate(latest.record_date)}` : 'Latest day'}
             subtitle="Your most recent recorded day">
             <ApiStateView state={records} loadingLabel="Loading your records">
               {(data) =>
@@ -338,7 +344,7 @@ export default function HomeScreen() {
                         <View style={styles.anomalyRow}>
                           <View style={styles.anomalyHeader}>
                             <Text style={[Typography.bodyStrong, { color: theme.text }]}>
-                              {day.date}
+                              {formatDayAndDate(day.date)}
                             </Text>
                             {/* A change from your own normal, not a risk level. */}
                             <SeverityTag severity={day.severity} />

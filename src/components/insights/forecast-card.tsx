@@ -60,6 +60,7 @@ export function ForecastCard({ data }: { data: ForecastResponse }) {
                   : 'trending-down'
             }
             size={16}
+            style={styles.iconNudge}
             color={theme.textSecondary}
           />
           <Text style={[Typography.caption, styles.flex, { color: theme.text }]}>
@@ -148,7 +149,8 @@ export function ForecastCard({ data }: { data: ForecastResponse }) {
 const styles = StyleSheet.create({
   wrap: { gap: Spacing.three },
   flex: { flex: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  iconNudge: { marginTop: 1 },
   rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',

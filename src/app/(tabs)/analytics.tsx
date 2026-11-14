@@ -30,7 +30,7 @@ import { useScope } from '@/hooks/use-scope';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/services/api/endpoints';
 import type { UsageRecord } from '@/types/api';
-import { formatCount, formatMinutes, formatShortDate } from '@/utils/format';
+import { formatCount, formatDayAndDate, formatMinutes, formatShortDate } from '@/utils/format';
 
 /** Mean of the defined values only; null when nothing is defined.
  *  Returning null rather than 0 keeps "not recorded" distinct from "zero". */
@@ -262,9 +262,17 @@ export default function AnalyticsScreen() {
                       {formatMinutes(stats.peak.total_screen_minutes)}
                     </Text>
                     <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                      {formatShortDate(stats.peak.record_date)} ·{' '}
-                      {formatCount(stats.peak.app_launches)} app opens ·{' '}
-                      {formatMinutes(stats.peak.late_night_minutes)} late at night
+                      {[
+                        formatDayAndDate(stats.peak.record_date),
+                        stats.peak.app_launches != null
+                          ? `${formatCount(stats.peak.app_launches)} app opens`
+                          : null,
+                        stats.peak.late_night_minutes != null
+                          ? `${formatMinutes(stats.peak.late_night_minutes)} late at night`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </Text>
                   </Card>
                 </Section>

@@ -63,10 +63,13 @@ export default function ModelPerformanceScreen() {
                         <View style={styles.baselineRow}>
                           <View style={styles.flex}>
                             <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                              Without a model (always picking the most common level)
+                              Without a model
                             </Text>
                             <Text style={[Typography.heading, { color: theme.textMuted }]}>
                               {formatPercent(data.classification.majority_baseline)}
+                            </Text>
+                            <Text style={[Typography.caption, { color: theme.textMuted }]}>
+                              always picks the most common level
                             </Text>
                           </View>
                           <Ionicons name="arrow-forward" size={18} color={theme.textMuted} />
@@ -220,10 +223,13 @@ export default function ModelPerformanceScreen() {
                         <View style={styles.baselineRow}>
                           <View style={styles.flex}>
                             <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                              Without a model (tomorrow = same as today)
+                              Without a model
                             </Text>
                             <Text style={[Typography.heading, { color: theme.textMuted }]}>
                               {formatMinutes(data.regression.naive_persistence_rmse)}
+                            </Text>
+                            <Text style={[Typography.caption, { color: theme.textMuted }]}>
+                              tomorrow = same as today
                             </Text>
                           </View>
                           <Ionicons name="arrow-forward" size={18} color={theme.textMuted} />

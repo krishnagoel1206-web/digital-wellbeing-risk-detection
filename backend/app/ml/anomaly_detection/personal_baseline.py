@@ -87,6 +87,18 @@ FEATURE_LABELS = {
 }
 
 
+def format_value(feature: str, value: float) -> str:
+    """A feature value the way a person would write it."""
+    if feature == "total_screen_minutes":
+        m = int(round(value))
+        return f"{m // 60}h {m % 60}m" if m >= 60 else f"{m}m"
+    if feature.endswith("_ratio"):
+        return f"{value * 100:.0f}%"
+    if feature == "sleep_hours":
+        return f"{value:.1f} h"
+    return f"{value:,.0f}"
+
+
 class InsufficientHistory(Exception):
     """Raised when there are too few days to establish a personal baseline."""
 
@@ -124,7 +136,8 @@ class FeatureDeviation:
             return f"{self.label.capitalize()}: normal for you."
         return (
             f"{self.label.capitalize()} {self.direction} your usual level: "
-            f"{self.value:.1f} versus your typical {self.baseline:.1f}."
+            f"{format_value(self.feature, self.value)} versus your typical "
+            f"{format_value(self.feature, self.baseline)}."
         )
 
 

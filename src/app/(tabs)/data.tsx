@@ -45,7 +45,13 @@ import {
 } from '@/services/usage/background-capture';
 import { getSyncStatus } from '@/services/usage/device-sync';
 import { captureIfDue } from '@/services/usage/foreground-capture';
-import { formatMinutes, formatShortDate } from '@/utils/format';
+import {
+  formatDayAndDate,
+  formatFieldName,
+  formatMinutes,
+  formatShortDate,
+  formatSource,
+} from '@/utils/format';
 
 /** How many recent days the trend chart shows. */
 const TREND_DAYS = 14;
@@ -248,7 +254,7 @@ export default function DataScreen() {
 
             {captureState.firstDate && captureState.lastDate ? (
               <Text style={[Typography.caption, styles.gapTop, { color: theme.textMuted }]}>
-                {captureState.firstDate} to {captureState.lastDate}
+                {formatShortDate(captureState.firstDate)} – {formatShortDate(captureState.lastDate)}
               </Text>
             ) : null}
 
@@ -258,19 +264,22 @@ export default function DataScreen() {
                 days are unrecoverable. */}
             <Text style={[Typography.caption, styles.gapTop, { color: theme.textMuted }]}>
               {captureState.lastCaptureMs
-                ? `Last captured ${new Date(captureState.lastCaptureMs).toLocaleString()}`
+                ? `Last captured ${new Date(captureState.lastCaptureMs).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`
                 : 'Not captured yet on this device.'}
             </Text>
 
             {background ? (
-              <View style={[styles.row, styles.gapTop]}>
+              <View style={[styles.rowTop, styles.gapTop]}>
                 <Ionicons
-                  name={background.registered ? 'sync-circle-outline' : 'warning-outline'}
+                  name={background.registered ? 'checkmark-circle' : 'warning-outline'}
                   size={14}
+                  style={styles.iconNudge}
                   color={background.registered ? theme.riskLow : theme.riskMedium}
                 />
                 <Text style={[Typography.caption, styles.flex, { color: theme.textSecondary }]}>
-                  {background.detail}
+                  {background.registered
+                    ? 'Also captured in the background, about twice a day.'
+                    : background.detail}
                 </Text>
               </View>
             ) : null}
@@ -306,10 +315,10 @@ export default function DataScreen() {
                 />
                 <View style={styles.axisRow}>
                   <Text style={[Typography.tabular, { color: theme.textMuted }]}>
-                    {rows[rows.length - 1]?.record_date.slice(5)}
+                    {formatShortDate(rows[rows.length - 1]?.record_date ?? '')}
                   </Text>
                   <Text style={[Typography.tabular, { color: theme.textMuted }]}>
-                    {rows[0]?.record_date.slice(5)}
+                    {formatShortDate(rows[0]?.record_date ?? '')}
                   </Text>
                 </View>
               </Card>
@@ -328,7 +337,7 @@ export default function DataScreen() {
               </Text>
               {data.first_date ? (
                 <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                  {data.first_date} to {data.last_date}
+                  {formatShortDate(data.first_date)} – {formatShortDate(data.last_date ?? '')}
                 </Text>
               ) : (
                 <Text style={[Typography.caption, { color: theme.textSecondary }]}>
@@ -359,8 +368,8 @@ export default function DataScreen() {
                       <Text
                         key={field}
                         style={[Typography.caption, { color: theme.textSecondary }]}>
-                        {field.replace(/_/g, ' ')}: {count} of {data.device_days} days
-                        {partial && since ? ` · from ${since}` : ''}
+                        {formatFieldName(field)}: {count} of {data.device_days} days
+                        {partial && since ? ` · since ${formatShortDate(since)}` : ''}
                       </Text>
                     );
                   })}
@@ -391,10 +400,10 @@ export default function DataScreen() {
                     <View style={styles.recordRow}>
                       <View style={styles.flex}>
                         <Text style={[Typography.bodyStrong, { color: theme.text }]}>
-                          {record.record_date}
+                          {formatDayAndDate(record.record_date)}
                         </Text>
                         <Text style={[Typography.caption, { color: theme.textMuted }]}>
-                          {record.source}
+                          {formatSource(record.source)}
                         </Text>
                       </View>
                       <Text style={[Typography.bodyStrong, { color: theme.text }]}>
@@ -415,6 +424,8 @@ export default function DataScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  iconNudge: { marginTop: 2 },
   gapTop: { marginTop: Spacing.two },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   coverageTop: { gap: Spacing.one },

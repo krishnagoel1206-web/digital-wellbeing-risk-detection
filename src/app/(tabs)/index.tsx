@@ -24,6 +24,7 @@ import { useCallback } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ScreenTimeBanner } from '@/components/home/screen-time-banner';
 import { ApiStateView } from '@/components/ui/api-states';
 import { Card } from '@/components/ui/card';
 import { RiskBadge } from '@/components/ui/risk-badge';
@@ -147,6 +148,8 @@ export default function HomeScreen() {
               A look at how you have been using your phone.
             </Text>
           </View>
+
+          <ScreenTimeBanner />
 
           {/* Demonstration-data warning, driven by the API rather than a
               hard-coded flag, so it disappears automatically once the user

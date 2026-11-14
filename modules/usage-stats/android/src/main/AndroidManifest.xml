@@ -34,6 +34,9 @@
     -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
 
+    <!-- Screen-time warnings ("you have passed your usual screen time"). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application>
         <!--
           Notification listener. BIND_NOTIFICATION_LISTENER_SERVICE is held by

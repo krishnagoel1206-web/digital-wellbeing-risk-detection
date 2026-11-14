@@ -20,6 +20,9 @@ android {
 }
 
 dependencies {
+  // Background screen-time check (ScreenTimeAlert). Same version expo-background-task uses.
+  implementation 'androidx.work:work-runtime-ktx:2.10.5'
+
   // compileOnly, not implementation: the Chaquopy runtime is contributed by
   // the APP module, which applies the Chaquopy plugin. This module only needs
   // the Python class to COMPILE against; packaging a second copy here would

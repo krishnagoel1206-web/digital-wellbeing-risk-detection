@@ -20,6 +20,7 @@ import { Link } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ScreenAlertCard } from '@/components/profile/screen-alert-card';
 import { ApiStateView } from '@/components/ui/api-states';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
@@ -127,6 +128,10 @@ export default function ProfileScreen() {
             </Pressable>
           </Link>
         </Card>
+      </Section>
+
+      <Section title="Warnings">
+        <ScreenAlertCard />
       </Section>
 
       <Section title="Your data">

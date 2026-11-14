@@ -188,6 +188,11 @@ type UsageStatsNativeModule = {
   readImportFile(name: string): string | null;
   getAppFlag(key: string): boolean;
   setAppFlag(key: string, value: boolean): boolean;
+  configureScreenAlert(enabled: boolean, usualMinutes: number, highMinutes: number, basisDays: number): boolean;
+  setScreenAlertEnabled(enabled: boolean): boolean;
+  getScreenAlertState(): ScreenAlertState;
+  sendTestScreenAlert(): boolean;
+  requestPostNotifications(): Promise<{ granted: boolean }>;
   deleteImportFile(name: string): boolean;
   getDiagnostics(): Promise<UsageDiagnostics>;
   captureDailyUsage(
@@ -236,6 +241,62 @@ export function getAppFlag(key: string): boolean {
   if (!native) return false;
   try {
     return native.getAppFlag(key);
+  } catch {
+    return false;
+  }
+}
+
+/** Screen-time warning settings and today's figure, as the background check sees them. */
+export type ScreenAlertState = {
+  enabled: boolean;
+  usualMinutes: number;
+  highMinutes: number;
+  basisDays: number;
+  todayMinutes: number | null;
+  notificationsAllowed: boolean;
+};
+
+export function configureScreenAlert(
+  enabled: boolean,
+  usualMinutes: number,
+  highMinutes: number,
+  basisDays: number
+): void {
+  try {
+    native?.configureScreenAlert(enabled, Math.round(usualMinutes), Math.round(highMinutes), basisDays);
+  } catch {
+    // Warnings are an extra; failing to schedule them must not break the app.
+  }
+}
+
+export function setScreenAlertEnabled(enabled: boolean): void {
+  try {
+    native?.setScreenAlertEnabled(enabled);
+  } catch {
+    // see configureScreenAlert
+  }
+}
+
+export function getScreenAlertState(): ScreenAlertState | null {
+  try {
+    return native?.getScreenAlertState() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function sendTestScreenAlert(): boolean {
+  try {
+    return native?.sendTestScreenAlert() ?? false;
+  } catch {
+    return false;
+  }
+}
+
+export async function requestPostNotifications(): Promise<boolean> {
+  try {
+    const result = await native?.requestPostNotifications();
+    return Boolean(result?.granted);
   } catch {
     return false;
   }

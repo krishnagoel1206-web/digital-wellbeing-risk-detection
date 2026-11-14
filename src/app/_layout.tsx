@@ -43,6 +43,7 @@ import { StartScreen } from '@/components/start/start-screen';
 import { ScopeProvider } from '@/hooks/use-scope';
 import { ensureBackgroundCapture } from '@/services/usage/background-capture';
 import { startForegroundCapture } from '@/services/usage/foreground-capture';
+import { refreshScreenAlert } from '@/services/usage/screen-alert';
 
 // Keep the native splash visible until the first screen is ready to show.
 SplashScreen.preventAutoHideAsync();
@@ -54,7 +55,13 @@ export default function RootLayout() {
 
   const onStarted = useCallback(() => {
     setStarting(false);
-    if (!UsageStats.getAppFlag('onboarded')) router.push('/onboarding');
+    if (!UsageStats.getAppFlag('onboarded')) {
+      router.push('/onboarding');
+      return;
+    }
+    // Learn today's warning levels from the stored days and keep the
+    // 15-minute background check running (see services/usage/screen-alert).
+    refreshScreenAlert().catch((error) => console.log(`[screen-alert] ${String(error)}`));
   }, []);
 
   useEffect(() => {

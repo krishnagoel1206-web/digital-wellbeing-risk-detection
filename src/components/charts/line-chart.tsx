@@ -11,7 +11,13 @@
  */
 
 import { useState } from 'react';
-import { View, type LayoutChangeEvent } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  type GestureResponderEvent,
+  type LayoutChangeEvent,
+} from 'react-native';
 import Svg, {
   Circle,
   Defs,
@@ -20,6 +26,9 @@ import Svg, {
   Stop,
   Line as SvgLine,
 } from 'react-native-svg';
+
+import { Radius, Spacing, Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 export type LineChartProps = {
   /** Y values in data order. Needs at least 2 points to draw a line. */
@@ -40,7 +49,16 @@ export type LineChartProps = {
   startAtZero?: boolean;
   /** Unique id, required so multiple gradients on one screen don't collide. */
   gradientId?: string;
+  /**
+   * One label per point (usually a date). When given, touching or dragging
+   * across the chart shows that point's label and value.
+   */
+  labels?: string[];
+  /** How a value is written in the touch read-out. */
+  formatValue?: (value: number, index: number) => string;
 };
+
+const TOOLTIP_W = 132;
 
 /** Inner padding so strokes and dots are not clipped at the edges. */
 const PAD = { top: 10, right: 6, bottom: 10, left: 6 };
@@ -75,8 +93,12 @@ export function LineChart({
   gridColor = 'rgba(128,128,128,0.15)',
   startAtZero = false,
   gradientId = 'lineChartFill',
+  labels,
+  formatValue = (v) => v.toFixed(1),
 }: LineChartProps) {
+  const theme = useTheme();
   const [width, setWidth] = useState(0);
+  const [active, setActive] = useState<number | null>(null);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -112,8 +134,32 @@ export function LineChart({
     areaPath = `${linePath} L ${points[points.length - 1].x} ${baselineY} L ${points[0].x} ${baselineY} Z`;
   }
 
+  const interactive = Boolean(labels) && canPlot;
+
+  // Nearest point to the finger, by x only - the reader is asking "which day".
+  const pick = (e: GestureResponderEvent) => {
+    if (!interactive) return;
+    const x = e.nativeEvent.locationX;
+    const step = data.length > 1 ? innerW / (data.length - 1) : innerW;
+    const i = Math.round((x - PAD.left) / (step || 1));
+    setActive(Math.max(0, Math.min(data.length - 1, i)));
+  };
+
+  const activePoint = active !== null && active < points.length ? points[active] : null;
+  const tooltipLeft = activePoint
+    ? Math.max(0, Math.min(width - TOOLTIP_W, activePoint.x - TOOLTIP_W / 2))
+    : 0;
+
   return (
-    <View onLayout={onLayout} style={{ width: '100%', height }}>
+    <View
+      onLayout={onLayout}
+      style={{ width: '100%', height }}
+      onStartShouldSetResponder={() => interactive}
+      onMoveShouldSetResponder={() => interactive}
+      // Let a vertical swipe still scroll the screen.
+      onResponderTerminationRequest={() => true}
+      onResponderGrant={pick}
+      onResponderMove={pick}>
       {canPlot ? (
         <Svg width={width} height={height}>
           {showArea ? (
@@ -165,10 +211,65 @@ export function LineChart({
                 />
               ))
             : null}
+
+          {activePoint ? (
+            <>
+              <SvgLine
+                x1={activePoint.x}
+                y1={PAD.top}
+                x2={activePoint.x}
+                y2={PAD.top + innerH}
+                stroke={theme.textMuted}
+                strokeWidth={1}
+                strokeDasharray="3 3"
+              />
+              <Circle
+                cx={activePoint.x}
+                cy={activePoint.y}
+                r={6}
+                fill={color}
+                stroke={theme.background}
+                strokeWidth={2}
+              />
+            </>
+          ) : null}
         </Svg>
+      ) : null}
+
+      {activePoint && active !== null && labels ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.tooltip,
+            {
+              left: tooltipLeft,
+              backgroundColor: theme.backgroundElement,
+              borderColor: theme.border,
+            },
+          ]}>
+          <Text style={[Typography.caption, { color: theme.textSecondary }]} numberOfLines={1}>
+            {labels[active] ?? ''}
+          </Text>
+          <Text style={[Typography.bodyStrong, { color: theme.text }]} numberOfLines={1}>
+            {formatValue(data[active], active)}
+          </Text>
+        </View>
       ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  tooltip: {
+    position: 'absolute',
+    top: 0,
+    width: TOOLTIP_W,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+  },
+});
 
 export default LineChart;

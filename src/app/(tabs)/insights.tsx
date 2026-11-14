@@ -28,9 +28,9 @@ import { useCallback } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LineChart } from '@/components/charts/line-chart';
 import { ApiStateView } from '@/components/ui/api-states';
 import { Card } from '@/components/ui/card';
+import { ForecastCard } from '@/components/insights/forecast-card';
 import { RiskConfidenceCard } from '@/components/insights/risk-confidence-card';
 import { RiskBadge } from '@/components/ui/risk-badge';
 import { ScopeSelector } from '@/components/ui/scope-selector';
@@ -47,7 +47,7 @@ import { useApi } from '@/hooks/use-api';
 import { useScope } from '@/hooks/use-scope';
 import { useTheme } from '@/hooks/use-theme';
 import * as api from '@/services/api/endpoints';
-import { formatMinutes, formatPercent, formatShortDate, riskLevelKey } from '@/utils/format';
+import { formatPercent, riskLevelKey } from '@/utils/format';
 
 /** Muted aside used for caveats, so they read as context not findings. */
 function Caveat({ children }: { children: string }) {
@@ -158,6 +158,31 @@ export default function InsightsScreen() {
             <ScopeSelector />
           </Card>
 
+          {/* ---------- forecast: first thing on the screen ---------- */}
+          <Section title="Predicted screen time" subtitle="Your next 7 days">
+            <ApiStateView
+              state={forecast}
+              loadingLabel="Forecasting"
+              notReadyHint="Needs a run of consecutive days to fill the model's lag features.">
+              {(data) => (
+                <Card>
+                  {!data.personal && data.training_data ? (
+                    <ProvenanceBanner
+                      fittedOn={data.training_data.fitted_on}
+                      note={data.training_data.note}
+                      readiness={
+                        data.personal_model.can_train_on_your_data
+                          ? undefined
+                          : data.personal_model.explanation
+                      }
+                    />
+                  ) : null}
+                  <ForecastCard data={data} />
+                </Card>
+              )}
+            </ApiStateView>
+          </Section>
+
           {/* ---------- 1. classification: the validated risk signal ---------- */}
           <Section title="Risk category" subtitle="Classifier trained on 7,500 people">
             <ApiStateView
@@ -219,11 +244,6 @@ export default function InsightsScreen() {
                     </Text>
                   </View>
 
-                  {data.caveats
-                    .filter((c): c is string => Boolean(c))
-                    .map((caveat) => (
-                      <Caveat key={caveat}>{caveat}</Caveat>
-                    ))}
                 </Card>
               )}
             </ApiStateView>
@@ -238,127 +258,6 @@ export default function InsightsScreen() {
               loadingLabel="Weighing the evidence"
               notReadyHint="Needs at least two weeks with 5+ recorded days each.">
               {(data) => <RiskConfidenceCard data={data} />}
-            </ApiStateView>
-          </Section>
-
-          {/* ---------- 2. forecast ---------- */}
-          <Section title="Predicted screen time" subtitle="Next 7 days">
-            <ApiStateView
-              state={forecast}
-              loadingLabel="Forecasting"
-              notReadyHint="Needs a run of consecutive days to fill the model's lag features.">
-              {(data) => (
-                <Card>
-                  {data.training_data ? (
-                    <ProvenanceBanner
-                      fittedOn={data.training_data.fitted_on}
-                      note={data.training_data.note}
-                      readiness={
-                        data.personal_model.can_train_on_your_data
-                          ? undefined
-                          : data.personal_model.explanation
-                      }
-                    />
-                  ) : null}
-
-                  <LineChart
-                    data={data.predictions.map((p) => p.predicted_hours)}
-                    height={150}
-                    color={theme.series3}
-                    gridColor={theme.grid}
-                    showArea
-                    showDots
-                    startAtZero
-                    gradientId="forecastChart"
-                  />
-
-                  <View style={styles.forecastRow}>
-                    {data.predictions.slice(0, 4).map((p) => (
-                      <View key={p.date} style={styles.forecastItem}>
-                        <Text style={[Typography.caption, { color: theme.textMuted }]}>
-                          {p.date.slice(5)}
-                        </Text>
-                        <Text style={[Typography.bodyStrong, { color: theme.text }]}>
-                          {formatMinutes(p.predicted_minutes)}
-                        </Text>
-                        {/* "firm" was wrong for the first day: it does not
-                            compound earlier predictions, but it is still a
-                            prediction. And now that the day in progress is
-                            excluded from the model's inputs, that first day is
-                            TODAY - a whole-day total, deliberately larger than
-                            the day-so-far shown on Usage. Saying so here is the
-                            difference between a useful number and one that
-                            looks like a contradiction. */}
-                        <Text
-                          style={[
-                            Typography.caption,
-                            { color: p.is_recursive ? theme.textMuted : theme.series3 },
-                          ]}>
-                          {p.is_current_day
-                            ? 'today, full day'
-                            : p.is_recursive
-                              ? 'compounds'
-                              : 'from history'}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {data.week_comparison ? (
-                    <View style={styles.row}>
-                      <Ionicons
-                        name={
-                          data.week_comparison.within_model_error
-                            ? 'remove'
-                            : data.week_comparison.change_minutes_per_day > 0
-                              ? 'trending-up'
-                              : 'trending-down'
-                        }
-                        size={16}
-                        color={theme.textSecondary}
-                      />
-                      <Text style={[Typography.caption, styles.flex, { color: theme.text }]}>
-                        {data.week_comparison.summary}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  <View style={[styles.metrics, { borderTopColor: theme.border }]}>
-                    <Text style={[Typography.label, { color: theme.textMuted }]}>
-                      HOW GOOD IS THIS MODEL
-                    </Text>
-                    <Text style={[Typography.caption, { color: theme.textSecondary }]}>
-                      {data.model} · typical error{' '}
-                      {formatMinutes(data.accuracy.rmse_minutes)} versus{' '}
-                      {formatMinutes(data.accuracy.naive_baseline_rmse)} for simply guessing
-                      today&apos;s figure
-                    </Text>
-                    {data.personal ? (
-                      <View style={styles.personal}>
-                        <Text style={[Typography.caption, { color: theme.text }]}>
-                          {`Trained on this phone from your ${data.personal.days_used} real days (${formatShortDate(
-                            data.personal.first_date
-                          )} – ${formatShortDate(data.personal.last_date)}). Each option below was tested by forecasting 7 days from points in your past:`}
-                        </Text>
-                        {data.personal.candidates.map((c) => (
-                          <View key={c.name} style={styles.rowBetween}>
-                            <Text
-                              style={[
-                                Typography.caption,
-                                { color: c.name === data.personal?.chosen ? theme.text : theme.textSecondary },
-                              ]}>
-                              {`${c.name === data.personal?.chosen ? '✓ ' : '   '}${c.name}${c.kind === 'baseline' ? ' (simple rule)' : ''}`}
-                            </Text>
-                            <Text style={[Typography.tabular, { color: theme.textSecondary }]}>
-                              {`±${formatMinutes(c.rmse_minutes)}`}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    ) : null}
-                  </View>
-                </Card>
-              )}
             </ApiStateView>
           </Section>
 
@@ -478,7 +377,6 @@ const styles = StyleSheet.create({
   header: { gap: Spacing.one },
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  personal: { gap: 4, marginTop: Spacing.two },
   rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -501,8 +399,6 @@ const styles = StyleSheet.create({
     gap: Spacing.one + 2,
     marginTop: Spacing.two,
   },
-  forecastRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.three },
-  forecastItem: { flex: 1, gap: 1 },
   anomaly: {
     paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.three,

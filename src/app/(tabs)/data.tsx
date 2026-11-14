@@ -45,7 +45,7 @@ import {
 } from '@/services/usage/background-capture';
 import { getSyncStatus } from '@/services/usage/device-sync';
 import { captureIfDue } from '@/services/usage/foreground-capture';
-import { formatMinutes } from '@/utils/format';
+import { formatMinutes, formatShortDate } from '@/utils/format';
 
 /** How many recent days the trend chart shows. */
 const TREND_DAYS = 14;
@@ -292,6 +292,10 @@ export default function DataScreen() {
               <Card>
                 <LineChart
                   data={[...rows].reverse().map((r) => r.total_screen_minutes / 60)}
+                  labels={[...rows].reverse().map((r) => formatShortDate(r.record_date))}
+                  formatValue={(_, i) =>
+                    formatMinutes([...rows].reverse()[i]?.total_screen_minutes)
+                  }
                   height={170}
                   color={theme.series1}
                   gridColor={theme.grid}

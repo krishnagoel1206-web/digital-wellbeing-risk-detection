@@ -191,6 +191,8 @@ export default function AnalyticsScreen() {
                 <Card>
                   <LineChart
                     data={ordered.map((r) => r.total_screen_minutes / 60)}
+                    labels={ordered.map((r) => formatShortDate(r.record_date))}
+                    formatValue={(_, i) => formatMinutes(ordered[i].total_screen_minutes)}
                     height={180}
                     color={theme.series1}
                     gridColor={theme.grid}

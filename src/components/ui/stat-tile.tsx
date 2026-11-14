@@ -16,7 +16,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Spacing, Typography } from '@/constants/theme';
+import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type StatTileProps = {
@@ -48,7 +48,7 @@ export function StatTile({
   const deltaColor = !hasDelta ? theme.textMuted : isGood ? theme.riskLow : theme.riskHigh;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { backgroundColor: theme.backgroundSelected }]}>
       <Text style={[Typography.caption, { color: theme.textMuted, fontWeight: '500' }]} numberOfLines={1}>
         {label}
       </Text>
@@ -85,6 +85,9 @@ const styles = StyleSheet.create({
     // long values truncate instead of pushing their neighbour off screen.
     flex: 1,
     minWidth: 0,
+    paddingVertical: Spacing.two + 4,
+    paddingHorizontal: Spacing.three - 2,
+    borderRadius: Radius.md,
   },
   value: {
     includeFontPadding: false,

@@ -287,8 +287,8 @@ export default function AnalyticsScreen() {
 
 const styles = StyleSheet.create({
   stack: { gap: Spacing.four },
-  grid: { flexDirection: 'row', gap: Spacing.three },
-  gapTop: { marginTop: Spacing.three },
+  grid: { flexDirection: 'row', gap: Spacing.two + 2 },
+  gapTop: { marginTop: Spacing.two + 2 },
   axis: {
     flexDirection: 'row',
     justifyContent: 'space-between',

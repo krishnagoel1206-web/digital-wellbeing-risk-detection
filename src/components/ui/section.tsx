@@ -27,9 +27,7 @@ export function Section({ title, subtitle, action, children }: SectionProps) {
     <View style={styles.wrap}>
       <View style={styles.header}>
         <View style={styles.titleCol}>
-          <Text style={[Typography.label, styles.title, { color: theme.textMuted }]}>
-            {title.toUpperCase()}
-          </Text>
+          <Text style={[Typography.section, styles.title, { color: theme.text }]}>{title}</Text>
           {subtitle ? (
             <Text style={[Typography.caption, { color: theme.textMuted }]}>{subtitle}</Text>
           ) : null}

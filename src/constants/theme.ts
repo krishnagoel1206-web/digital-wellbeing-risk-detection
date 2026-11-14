@@ -45,11 +45,11 @@ export const Colors = {
     /** Primary ink - slate 900. */
     text: '#0F172A',
     /** Page plane - a cool off-white behind the cards. */
-    background: '#F5F6F8',
+    background: '#EFF1F5',
     /** Card / raised element surface. This is also the chart surface. */
     backgroundElement: '#FFFFFF',
     /** A pressed or selected surface. */
-    backgroundSelected: '#EEF0F4',
+    backgroundSelected: '#F2F4F7',
     /** Secondary ink - slate 600, 7.6:1 on the card. */
     textSecondary: '#475467',
 
@@ -231,11 +231,11 @@ export const Elevation = {
   }),
   card: Platform.select({
     // A tinted, very soft shadow (honoured on Android 9+), not a grey smudge.
-    android: { elevation: 2, shadowColor: '#101828' },
+    android: { elevation: 3, shadowColor: '#101828' },
     default: {
       shadowColor: '#101828',
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
+      shadowOpacity: 0.07,
+      shadowRadius: 14,
       shadowOffset: { width: 0, height: 2 },
     },
   }),
@@ -279,6 +279,8 @@ export const Typography = {
   body: { fontSize: 15, lineHeight: 22, fontWeight: '400' as const },
   bodyStrong: { fontSize: 15, lineHeight: 22, fontWeight: '600' as const, letterSpacing: -0.1 },
   caption: { fontSize: 13, lineHeight: 19, fontWeight: '400' as const },
+  /** Section heading above a card - bold, sentence case. */
+  section: { fontSize: 18, lineHeight: 24, fontWeight: '700' as const, letterSpacing: -0.4 },
   /** Small all-caps section label. */
   label: {
     fontSize: 11,
@@ -295,5 +297,6 @@ export const Typography = {
   },
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+/** Room left under the content for the floating tab bar. */
+export const BottomTabInset = Platform.select({ ios: 70, android: 100 }) ?? 0;
 export const MaxContentWidth = 800;

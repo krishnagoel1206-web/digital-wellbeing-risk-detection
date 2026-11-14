@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.one,
   },
   probFill: { height: 4, borderRadius: Radius.pill },
-  tileGrid: { flexDirection: 'row', gap: Spacing.three },
+  tileGrid: { flexDirection: 'row', gap: Spacing.two + 2 },
   anomalyRow: {
     paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.three,

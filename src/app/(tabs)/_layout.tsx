@@ -19,8 +19,9 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router/tabs';
-import { Platform, StyleSheet, View, type ColorValue } from 'react-native';
+import { Tabs, type BottomTabBarButtonProps } from 'expo-router/tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, View, type ColorValue, type GestureResponderEvent } from 'react-native';
 
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -48,6 +49,31 @@ function TabIcon({
   );
 }
 
+/** Tab button without Android's borderless ripple, which spills outside the
+ *  floating bar; the pill behind the icon is the feedback instead. */
+function TabButton({
+  children,
+  style,
+  onPress,
+  onLongPress,
+  accessibilityState,
+  accessibilityLabel,
+  testID,
+}: BottomTabBarButtonProps) {
+  return (
+    <Pressable
+      onPress={onPress as ((e: GestureResponderEvent) => void) | undefined}
+      onLongPress={onLongPress}
+      style={({ pressed }) => [style, pressed && styles.pressed]}
+      accessibilityRole="tab"
+      accessibilityState={accessibilityState}
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}>
+      {children}
+    </Pressable>
+  );
+}
+
 function tabIcon(base: string) {
   // `color` is RN's ColorValue, not string - the navigator passes a ColorValue.
   const Icon = ({ color, focused }: { color: ColorValue; size: number; focused: boolean }) => (
@@ -59,6 +85,7 @@ function tabIcon(base: string) {
 
 export default function TabsLayout() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -66,16 +93,27 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textMuted,
+        // A floating bar, lifted off the screen edge.
         tabBarStyle: {
-          backgroundColor: theme.backgroundElement,
-          borderTopColor: theme.border,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          // Give Android room for the gesture bar.
-          height: Platform.select({ android: 70, default: 88 }),
+          position: 'absolute',
+          marginHorizontal: Spacing.three,
+          bottom: insets.bottom + Spacing.two,
+          height: 68,
           paddingTop: Spacing.two,
-          elevation: 0,
-          paddingBottom: Platform.select({ android: Spacing.two, default: Spacing.four }),
+          paddingBottom: Spacing.two,
+          borderRadius: Radius.xxl,
+          backgroundColor: theme.backgroundElement,
+          borderTopWidth: 0,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: theme.border,
+          elevation: 10,
+          shadowColor: '#101828',
+          shadowOpacity: 0.12,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 8 },
         },
+        tabBarItemStyle: { paddingTop: 2 },
+        tabBarButton: (props) => <TabButton {...props} />,
         tabBarLabelStyle: {
           ...Typography.label,
           fontSize: 11,
@@ -110,6 +148,7 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  pressed: { opacity: 0.6 },
   pill: {
     width: 52,
     height: 30,

@@ -307,10 +307,6 @@ export default function ModelPerformanceScreen() {
                     </Section>
                   </>
                 ) : null}
-
-                <Card>
-                  <Text style={[Typography.caption, { color: theme.textMuted }]}>{data.note}</Text>
-                </Card>
               </View>
             )}
           </ApiStateView>
